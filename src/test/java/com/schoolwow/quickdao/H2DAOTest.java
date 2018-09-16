@@ -1,9 +1,18 @@
 package com.schoolwow.quickdao;
 
+import com.alibaba.fastjson.JSON;
+import com.schoolwow.quickdao.entity.User;
+import org.apache.commons.dbcp.BasicDataSource;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-public class H2DAOTest extends CommonTest{
+import java.util.List;
+
+public class H2DAOTest {
+    static BasicDataSource basicDataSource = new BasicDataSource();
+    static QuickDAO quickDAO;
+    static String packageName = "com.schoolwow.quickdao.entity";
+
     @BeforeClass
     public static void beforeClass(){
         basicDataSource.setDriverClassName("org.h2.Driver");
@@ -12,7 +21,8 @@ public class H2DAOTest extends CommonTest{
     }
 
     @Test
-    public void init(){
-
+    public void addNullQuery() {
+        List<User> userList = quickDAO.query(User.class).addNullQuery("username").getList();
+        System.out.println(userList);
     }
 }

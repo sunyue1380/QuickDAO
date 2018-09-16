@@ -130,7 +130,7 @@ public class StatementUtil {
             }
             break;
             case "string": {
-                ps.setString(parameterIndex, field.get(instance)==null?"":field.get(instance).toString());
+                ps.setString(parameterIndex, field.get(instance)==null?null:field.get(instance).toString());
             }
             break;
             default: {

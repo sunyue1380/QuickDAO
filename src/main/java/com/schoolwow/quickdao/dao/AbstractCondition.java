@@ -29,7 +29,8 @@ public class AbstractCondition<T> implements Condition<T>{
     protected List parameterList = new ArrayList();
     protected Class<T> _class;
     protected DataSource dataSource;
-    protected ResultSet resultSet;
+
+    private boolean hasDone = false;
 
     private static String[] patterns = new String[]{"%","_","[","[^","[!","]"};
 
@@ -40,13 +41,13 @@ public class AbstractCondition<T> implements Condition<T>{
 
     @Override
     public Condition addNullQuery(String field) {
-        whereBuilder.append("(`"+StringUtil.Camel2Underline(field)+"` is null) and ");
+        whereBuilder.append("(`"+StringUtil.Camel2Underline(field)+"` is null or `"+StringUtil.Camel2Underline(field)+"` = '') and ");
         return this;
     }
 
     @Override
     public Condition addNotNullQuery(String field) {
-        whereBuilder.append("(`"+StringUtil.Camel2Underline(field)+"` is not null) and ");
+        whereBuilder.append("(`"+StringUtil.Camel2Underline(field)+"` is not null and `"+StringUtil.Camel2Underline(field)+"` != '') and ");
         return this;
     }
 
@@ -165,11 +166,16 @@ public class AbstractCondition<T> implements Condition<T>{
             orderByBuilder.deleteCharAt(orderByBuilder.length() - 1);
             orderByBuilder.insert(0, "order by ");
         }
+        hasDone = true;
         return this;
     }
 
     @Override
     public long count() {
+        if(!hasDone){
+            done();
+            hasDone = true;
+        }
         String countSQL = "select count(1) from "+StringUtil.Camel2Underline(_class.getSimpleName())+" "+whereBuilder.toString();
         long count = -1;
         try (Connection connection = dataSource.getConnection();
@@ -193,6 +199,10 @@ public class AbstractCondition<T> implements Condition<T>{
 
     @Override
     public long delete() {
+        if(!hasDone){
+            done();
+            hasDone = true;
+        }
         String deleteSQL = "delete from "+StringUtil.Camel2Underline(_class.getSimpleName())+" "+whereBuilder.toString();
         long effect = 0;
         try (Connection connection = dataSource.getConnection();
@@ -212,6 +222,10 @@ public class AbstractCondition<T> implements Condition<T>{
 
     @Override
     public List<T> getList() {
+        if(!hasDone){
+            done();
+            hasDone = true;
+        }
         StringBuilder sqlBuilder = new StringBuilder("select "+SQLUtil.columns(_class)+" from "+StringUtil.Camel2Underline(_class.getSimpleName())+" ");
         sqlBuilder.append(whereBuilder.toString()+" "+groupByBuilder.toString()+" "+havingBuilder.toString()+" "+orderByBuilder.toString()+" "+limit);
 
@@ -248,6 +262,10 @@ public class AbstractCondition<T> implements Condition<T>{
 
     @Override
     public List<T> getValueList(Class<T> _class, String column) {
+        if(!hasDone){
+            done();
+            hasDone = true;
+        }
         StringBuilder sqlBuilder = new StringBuilder("select " + (columnBuilder.length()>0?columnBuilder.toString():"`"+column+"`") + " from " + StringUtil.Camel2Underline(this._class.getSimpleName()) + " ");
         sqlBuilder.append(whereBuilder.toString() + " " + groupByBuilder.toString() +" "+ havingBuilder.toString() + " " + orderByBuilder.toString() + " " + limit);
 

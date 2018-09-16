@@ -31,7 +31,7 @@ public class AbstractDAO implements DAO {
 
     public AbstractDAO(DataSource dataSource) {
         this.dataSource = dataSource;
-        fieldMapping.put("string", "VARCHAR(40)");
+        fieldMapping.put("string", "VARCHAR(255)");
         fieldMapping.put("boolean", "BOOLEAN");
         fieldMapping.put("byte", "TINYINT");
         fieldMapping.put("short", "SMALLINT");
@@ -163,6 +163,8 @@ public class AbstractDAO implements DAO {
                 effect = ps.executeBatch()[0];
             }
         }
+
+
         //setLastInsertId(connection,instance,id);
         ps.close();
         connection.commit();
