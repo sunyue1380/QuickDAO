@@ -10,6 +10,7 @@ public interface Condition<T> {
     Condition addQuery(String query);
     Condition addQuery(String property,Object value);
     Condition addQuery(String property,String operator,Object value);
+    Condition addUpdate(String property,Object value);
     Condition groupBy(String field);
     Condition having(String query);
 
@@ -21,6 +22,7 @@ public interface Condition<T> {
     Condition done();
 
     long count();
+    long update();
     long delete();
     List<T> getList();
     List<T> getValueList(Class<T> _class,String column);

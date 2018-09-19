@@ -9,6 +9,7 @@ import com.schoolwow.quickdao.entity.UserWrapper;
 import org.apache.commons.dbcp.BasicDataSource;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.util.List;
@@ -17,6 +18,13 @@ public class CommonTest {
     static BasicDataSource basicDataSource = new BasicDataSource();
     static QuickDAO quickDAO;
     static String packageName = "com.schoolwow.quickdao.entity";
+
+    @BeforeClass
+    public static void beforeClass(){
+        basicDataSource.setDriverClassName("org.h2.Driver");
+        basicDataSource.setUrl("jdbc:h2:c:/db/quickdao_h2.db;MODE=MySQL");
+        quickDAO = new QuickDAO(basicDataSource,packageName);
+    }
 
     @Before
     public void before(){
@@ -105,6 +113,7 @@ public class CommonTest {
         user.setNickname("ice");
         long effect = quickDAO.save(user);
         System.out.println("save:"+effect);
+        System.out.println("userId:"+user.getId());
     }
 
     @Test
@@ -148,6 +157,15 @@ public class CommonTest {
         }
         long effect = quickDAO.save(users);
         System.out.println("saveMulti:"+effect);
+    }
+
+    @Test
+    public void update() {
+        long effect = quickDAO.query(User.class)
+                .addUpdate("username","sunyue_update")
+                .addQuery("password","123456")
+                .update();
+        System.out.println("update:"+effect);
     }
 
     @Test

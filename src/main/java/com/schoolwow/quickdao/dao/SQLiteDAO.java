@@ -3,6 +3,7 @@ package com.schoolwow.quickdao.dao;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.schoolwow.quickdao.util.StatementUtil;
+import com.schoolwow.quickdao.util.StringUtil;
 
 import javax.sql.DataSource;
 import java.lang.reflect.Field;
@@ -17,6 +18,15 @@ public class SQLiteDAO extends AbstractDAO{
     public SQLiteDAO(DataSource dataSource) {
         super(dataSource);
         fieldMapping.put("long","INTEGER");
+    }
+
+    protected void setLastInsertId(Connection connection,Object instance,Field id) throws IllegalAccessException, SQLException {
+        String tableName = StringUtil.Camel2Underline(instance.getClass().getSimpleName());
+        ResultSet resultSet = connection.prepareStatement("select last_insert_rowid() from "+tableName).executeQuery();
+        if(resultSet.next()){
+            id.setLong(instance,resultSet.getLong(1));
+        }
+        resultSet.close();
     }
 
     protected String getInsertIgnoreSQL(){

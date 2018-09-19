@@ -25,4 +25,17 @@ public class H2DAOTest {
         List<User> userList = quickDAO.query(User.class).addNullQuery("username").getList();
         System.out.println(userList);
     }
+
+    @Test
+    public void save() {
+        User user = new User();
+        user.setUsername("2121");
+        user.setPassword("2222");
+        user.setAge(26);
+        user.setNickname("4444");
+        long effect = quickDAO.save(user);
+        System.out.println("save:"+effect);
+
+        System.out.println("id"+user.getId());
+    }
 }

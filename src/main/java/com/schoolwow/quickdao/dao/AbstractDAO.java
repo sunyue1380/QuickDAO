@@ -163,14 +163,36 @@ public class AbstractDAO implements DAO {
                 effect = ps.executeBatch()[0];
             }
         }
+        connection.commit();
 
+        //判断有无UniqueKey
+        if(SQLUtil.hasUniqueKey(instance.getClass())){
+            //根据uniquekey去获取
+            Condition condition = query(instance.getClass());
+            for(Field field:fields){
+                if(field.getAnnotation(Unique.class)!=null){
+                    condition.addQuery(StringUtil.Camel2Underline(field.getName()),field.get(instance));
+                }
+            }
+            List<Long> ids = condition.getValueList(Long.class,"id");
+            id.setLong(instance,ids.get(0).longValue());
+        }else{
+            setLastInsertId(connection,instance,id);
+        }
 
-        //setLastInsertId(connection,instance,id);
         ps.close();
         connection.commit();
         connection.setAutoCommit(true);
         connection.close();
         return effect;
+    }
+
+    protected void setLastInsertId(Connection connection,Object instance,Field id) throws IllegalAccessException, SQLException {
+        ResultSet resultSet = connection.prepareStatement("select last_insert_id();").executeQuery();
+        if(resultSet.next()){
+            id.setLong(instance,resultSet.getLong(1));
+        }
+        resultSet.close();
     }
 
     @Override

@@ -21,6 +21,7 @@ import java.util.List;
 public class AbstractCondition<T> implements Condition<T>{
     Logger logger = LoggerFactory.getLogger(AbstractCondition.class);
     protected StringBuilder columnBuilder = new StringBuilder();
+    protected StringBuilder setBuilder = new StringBuilder();
     protected StringBuilder whereBuilder = new StringBuilder();
     protected StringBuilder groupByBuilder = new StringBuilder("group by ");
     protected StringBuilder havingBuilder = new StringBuilder("having ");
@@ -108,6 +109,13 @@ public class AbstractCondition<T> implements Condition<T>{
     }
 
     @Override
+    public Condition addUpdate(String property, Object value) {
+        setBuilder.append("`"+StringUtil.Camel2Underline(property)+"`=?,");
+        parameterList.add(value);
+        return this;
+    }
+
+    @Override
     public Condition groupBy(String field) {
         groupByBuilder.append("`"+StringUtil.Camel2Underline(field)+"`,");
         return this;
@@ -147,6 +155,10 @@ public class AbstractCondition<T> implements Condition<T>{
     public Condition done() {
         if (columnBuilder.length() > 0) {
             columnBuilder.deleteCharAt(columnBuilder.length() - 1);
+        }
+        if(setBuilder.length()>0){
+            setBuilder.deleteCharAt(setBuilder.length() - 1);
+            setBuilder.insert(0,"set ");
         }
         if (whereBuilder.length() > 0) {
             whereBuilder.delete(whereBuilder.length() - 5, whereBuilder.length());
@@ -195,6 +207,33 @@ public class AbstractCondition<T> implements Condition<T>{
             e.printStackTrace();
         }
         return count;
+    }
+
+    @Override
+    public long update() {
+        if(!hasDone){
+            done();
+            hasDone = true;
+        }
+        if(setBuilder.length()==0){
+            logger.warn("请先调用addUpdate方法!");
+            return 0;
+        }
+        String updateSQL = "update "+StringUtil.Camel2Underline(_class.getSimpleName())+" "+setBuilder.toString()+" "+whereBuilder;
+        long effect = 0;
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement ps = connection.prepareStatement(updateSQL);){
+            if(parameterList!=null&&parameterList.size()>0){
+                for(int i=0;i<parameterList.size();i++){
+                    ps.setObject((i+1),parameterList.get(i));
+                }
+            }
+            logger.debug("update sql:"+ps.toString());
+            effect = ps.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return effect;
     }
 
     @Override
