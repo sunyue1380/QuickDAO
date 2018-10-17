@@ -1,5 +1,6 @@
 package com.schoolwow.quickdao.dao;
 
+import com.alibaba.fastjson.JSON;
 import com.schoolwow.quickdao.annotation.Ignore;
 import com.schoolwow.quickdao.util.SQLUtil;
 import com.schoolwow.quickdao.util.StatementUtil;
@@ -31,31 +32,39 @@ public class AbstractCondition<T> implements Condition<T>{
     protected Class<T> _class;
     protected DataSource dataSource;
 
+    private int joinTableIndex = 1;
+    private List<AbstractSubCondition> subConditionList = new ArrayList<>();
+
+    private String tableName = null;
     private boolean hasDone = false;
 
     private static String[] patterns = new String[]{"%","_","[","[^","[!","]"};
 
     public AbstractCondition(Class<T> _class, DataSource dataSource) {
         this._class = _class;
+        this.tableName = StringUtil.Camel2Underline(_class.getSimpleName());
         this.dataSource = dataSource;
     }
 
     @Override
     public Condition addNullQuery(String field) {
-        whereBuilder.append("(`"+StringUtil.Camel2Underline(field)+"` is null or `"+StringUtil.Camel2Underline(field)+"` = '') and ");
+        whereBuilder.append("(t.`"+StringUtil.Camel2Underline(field)+"` is null or t.`"+StringUtil.Camel2Underline(field)+"` = '') and ");
         return this;
     }
 
     @Override
     public Condition addNotNullQuery(String field) {
-        whereBuilder.append("(`"+StringUtil.Camel2Underline(field)+"` is not null and `"+StringUtil.Camel2Underline(field)+"` != '') and ");
+        whereBuilder.append("(t.`"+StringUtil.Camel2Underline(field)+"` is not null and t.`"+StringUtil.Camel2Underline(field)+"` != '') and ");
         return this;
     }
 
     @Override
     public Condition addInQuery(String field, Object[] values) {
+        if(values==null||values.length==0){
+            return this;
+        }
         parameterList.addAll(Arrays.asList(values));
-        whereBuilder.append("("+StringUtil.Camel2Underline(field)+" in (");
+        whereBuilder.append("(t."+StringUtil.Camel2Underline(field)+" in (");
         for(int i=0;i<values.length;i++){
             whereBuilder.append("?,");
         }
@@ -77,6 +86,9 @@ public class AbstractCondition<T> implements Condition<T>{
 
     @Override
     public Condition addQuery(String property, Object value) {
+        if(value==null||value.toString().equals("")){
+            return this;
+        }
         if(value instanceof String){
             addQuery(property,"like",value);
         }else{
@@ -88,7 +100,7 @@ public class AbstractCondition<T> implements Condition<T>{
     @Override
     public Condition addQuery(String property, String operator, Object value) {
         if(value instanceof String){
-            whereBuilder.append("(`"+property+"` "+operator+" ?) and ");
+            whereBuilder.append("(t.`"+property+"` "+operator+" ?) and ");
             boolean hasContains = false;
             for(String pattern:patterns){
                 if(((String) value).contains(pattern)){
@@ -102,7 +114,7 @@ public class AbstractCondition<T> implements Condition<T>{
 
             }
         }else{
-            whereBuilder.append("(`"+property+"` "+operator+" ?) and ");
+            whereBuilder.append("(t.`"+property+"` "+operator+" ?) and ");
             parameterList.add(value);
         }
         return this;
@@ -110,14 +122,14 @@ public class AbstractCondition<T> implements Condition<T>{
 
     @Override
     public Condition addUpdate(String property, Object value) {
-        setBuilder.append("`"+StringUtil.Camel2Underline(property)+"`=?,");
+        setBuilder.append("t.`"+StringUtil.Camel2Underline(property)+"`=?,");
         parameterList.add(value);
         return this;
     }
 
     @Override
     public Condition groupBy(String field) {
-        groupByBuilder.append("`"+StringUtil.Camel2Underline(field)+"`,");
+        groupByBuilder.append("t.`"+StringUtil.Camel2Underline(field)+"`,");
         return this;
     }
 
@@ -128,14 +140,23 @@ public class AbstractCondition<T> implements Condition<T>{
     }
 
     @Override
+    public <T> SubCondition<T> joinTable(Class<T> _class, String primaryField, String joinTableField) {
+        String tableNameAlias = "t"+joinTableIndex;
+        joinTableIndex++;
+        SubCondition<T> subCondition = new AbstractSubCondition<T>(_class,tableNameAlias,primaryField,joinTableField,this);
+        subConditionList.add((AbstractSubCondition) subCondition);
+        return subCondition;
+    }
+
+    @Override
     public Condition orderBy(String field) {
-        orderByBuilder.append("`"+field+"` asc,");
+        orderByBuilder.append("t.`"+field+"` asc,");
         return this;
     }
 
     @Override
     public Condition orderByDesc(String field) {
-        orderByBuilder.append("`"+field+"` desc,");
+        orderByBuilder.append("t.`"+field+"` desc,");
         return this;
     }
 
@@ -147,7 +168,7 @@ public class AbstractCondition<T> implements Condition<T>{
 
     @Override
     public Condition addColumn(String field) {
-        columnBuilder.append(""+StringUtil.Camel2Underline(field)+",");
+        columnBuilder.append("t."+StringUtil.Camel2Underline(field)+",");
         return this;
     }
 
@@ -178,6 +199,13 @@ public class AbstractCondition<T> implements Condition<T>{
             orderByBuilder.deleteCharAt(orderByBuilder.length() - 1);
             orderByBuilder.insert(0, "order by ");
         }
+        //处理所有子查询的where语句
+        for(AbstractSubCondition abstractSubCondition:subConditionList){
+            if (abstractSubCondition.whereBuilder.length() > 0) {
+                abstractSubCondition.whereBuilder.delete(abstractSubCondition.whereBuilder.length() - 5,abstractSubCondition.whereBuilder.length());
+            }
+        }
+
         hasDone = true;
         return this;
     }
@@ -188,7 +216,10 @@ public class AbstractCondition<T> implements Condition<T>{
             done();
             hasDone = true;
         }
-        String countSQL = "select count(1) from "+StringUtil.Camel2Underline(_class.getSimpleName())+" "+whereBuilder.toString();
+        StringBuilder countSQLBuilder = new StringBuilder("select count(1) from `"+tableName+"` as t ");
+        addJoinTableStatement(countSQLBuilder);
+        String countSQL = countSQLBuilder.toString().replaceAll("\\s+"," ");
+
         long count = -1;
         try (Connection connection = dataSource.getConnection();
              PreparedStatement ps = connection.prepareStatement(countSQL);){
@@ -197,6 +228,7 @@ public class AbstractCondition<T> implements Condition<T>{
                     ps.setObject((i+1),parameterList.get(i));
                 }
             }
+            addJoinTableParamters(ps);
             logger.debug("count sql:"+ps.toString());
             ResultSet resultSet = ps.executeQuery();
             if(resultSet.next()){
@@ -219,7 +251,11 @@ public class AbstractCondition<T> implements Condition<T>{
             logger.warn("请先调用addUpdate方法!");
             return 0;
         }
-        String updateSQL = "update "+StringUtil.Camel2Underline(_class.getSimpleName())+" "+setBuilder.toString()+" "+whereBuilder;
+
+        StringBuilder updateSQLBuilder = new StringBuilder("update "+tableName+" as t ");
+        addJoinTableStatement(updateSQLBuilder);
+        String updateSQL = updateSQLBuilder.toString().replaceAll("\\s+"," ");
+
         long effect = 0;
         try (Connection connection = dataSource.getConnection();
              PreparedStatement ps = connection.prepareStatement(updateSQL);){
@@ -228,6 +264,7 @@ public class AbstractCondition<T> implements Condition<T>{
                     ps.setObject((i+1),parameterList.get(i));
                 }
             }
+            addJoinTableParamters(ps);
             logger.debug("update sql:"+ps.toString());
             effect = ps.executeUpdate();
         } catch (SQLException e) {
@@ -242,7 +279,10 @@ public class AbstractCondition<T> implements Condition<T>{
             done();
             hasDone = true;
         }
-        String deleteSQL = "delete from "+StringUtil.Camel2Underline(_class.getSimpleName())+" "+whereBuilder.toString();
+        StringBuilder deleteSQLBuilder = new StringBuilder("delete from "+tableName+"as t ");
+        addJoinTableStatement(deleteSQLBuilder);
+        String deleteSQL = deleteSQLBuilder.toString().replaceAll("\\s+"," ");
+
         long effect = 0;
         try (Connection connection = dataSource.getConnection();
              PreparedStatement ps = connection.prepareStatement(deleteSQL);){
@@ -251,6 +291,7 @@ public class AbstractCondition<T> implements Condition<T>{
                     ps.setObject((i+1),parameterList.get(i));
                 }
             }
+            addJoinTableParamters(ps);
             logger.debug("delete sql:"+ps.toString());
             effect = ps.executeUpdate();
         } catch (SQLException e) {
@@ -265,18 +306,21 @@ public class AbstractCondition<T> implements Condition<T>{
             done();
             hasDone = true;
         }
-        StringBuilder sqlBuilder = new StringBuilder("select "+SQLUtil.columns(_class)+" from "+StringUtil.Camel2Underline(_class.getSimpleName())+" ");
-        sqlBuilder.append(whereBuilder.toString()+" "+groupByBuilder.toString()+" "+havingBuilder.toString()+" "+orderByBuilder.toString()+" "+limit);
+        StringBuilder getListSQLBuilder = new StringBuilder("select "+SQLUtil.columns(_class,"t")+" from `"+tableName+"` as t ");
+        addJoinTableStatement(getListSQLBuilder);
+        getListSQLBuilder.append(groupByBuilder.toString()+" "+havingBuilder.toString()+" "+orderByBuilder.toString()+" "+limit);
+        String getListSQL = getListSQLBuilder.toString().replaceAll("\\s+"," ");
 
         int size = (int) count();
         List<T> instanceList = new ArrayList<>(size);
         try (Connection connection = dataSource.getConnection();
-             PreparedStatement ps = connection.prepareStatement(sqlBuilder.toString());){
+             PreparedStatement ps = connection.prepareStatement(getListSQL);){
             if(parameterList!=null&&parameterList.size()>0){
                 for(int i=0;i<parameterList.size();i++){
                     ps.setObject((i+1),parameterList.get(i));
                 }
             }
+            addJoinTableParamters(ps);
             logger.debug("get list:"+ps.toString());
             ResultSet resultSet = ps.executeQuery();
             while(resultSet.next()){
@@ -287,7 +331,7 @@ public class AbstractCondition<T> implements Condition<T>{
                     if(field.getAnnotation(Ignore.class)!=null){
                         continue;
                     }
-                    StatementUtil.getSingleField(resultSet, instance, field,StringUtil.Camel2Underline(field.getName()));
+                    StatementUtil.getSingleField(resultSet, instance, field,"t."+StringUtil.Camel2Underline(field.getName()));
                 }
                 instanceList.add(instance);
             }
@@ -305,22 +349,25 @@ public class AbstractCondition<T> implements Condition<T>{
             done();
             hasDone = true;
         }
-        StringBuilder sqlBuilder = new StringBuilder("select " + (columnBuilder.length()>0?columnBuilder.toString():"`"+column+"`") + " from " + StringUtil.Camel2Underline(this._class.getSimpleName()) + " ");
-        sqlBuilder.append(whereBuilder.toString() + " " + groupByBuilder.toString() +" "+ havingBuilder.toString() + " " + orderByBuilder.toString() + " " + limit);
+        StringBuilder getValueListSQLBuilder = new StringBuilder("select " + (columnBuilder.length()>0?columnBuilder.toString():"t.`"+column+"`") + " from " + tableName + " as t ");
+        addJoinTableStatement(getValueListSQLBuilder);
+        getValueListSQLBuilder.append(groupByBuilder.toString() +" "+ havingBuilder.toString() + " " + orderByBuilder.toString() + " " + limit);
+        String getValueListSQL = getValueListSQLBuilder.toString().replaceAll("\\s+"," ");
 
         int size = (int) count();
         List<T> instanceList = new ArrayList<>(size);
         try (Connection connection = dataSource.getConnection();
-             PreparedStatement ps = connection.prepareStatement(sqlBuilder.toString());) {
+             PreparedStatement ps = connection.prepareStatement(getValueListSQL);) {
             if (parameterList != null && parameterList.size() > 0) {
                 for (int i = 0; i < parameterList.size(); i++) {
                     ps.setObject((i + 1), parameterList.get(i));
                 }
             }
+            addJoinTableParamters(ps);
             logger.debug("get value:"+ps.toString());
             ResultSet resultSet = ps.executeQuery();
             while (resultSet.next()) {
-                T instance = _class.getConstructor(String.class).newInstance(resultSet.getString(column));
+                T instance = _class.getConstructor(String.class).newInstance(resultSet.getString("t."+column));
                 instanceList.add(instance);
             }
         } catch (SQLException | InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
@@ -328,5 +375,29 @@ public class AbstractCondition<T> implements Condition<T>{
             return null;
         }
         return instanceList;
+    }
+
+    private void addJoinTableStatement(StringBuilder SQLBuilder) {
+        for (AbstractSubCondition abstractSubCondition : subConditionList) {
+            String subTableName = StringUtil.Camel2Underline(abstractSubCondition._class.getSimpleName());
+            SQLBuilder.append("join " + subTableName + " as " + abstractSubCondition.tableAliasName + " on t." + abstractSubCondition.primaryField + " = " + abstractSubCondition.tableAliasName + "." + abstractSubCondition.joinTableField + " ");
+        }
+        SQLBuilder.append(whereBuilder.toString());
+        for (AbstractSubCondition abstractSubCondition : subConditionList) {
+            if (abstractSubCondition.whereBuilder.length() > 0) {
+                SQLBuilder.append(" and " + abstractSubCondition.whereBuilder.toString() + " ");
+            }
+        }
+    }
+
+    private void addJoinTableParamters(PreparedStatement ps) throws SQLException {
+        int parameterIndex = parameterList.size()+1;
+        for (AbstractSubCondition abstractSubCondition : subConditionList) {
+            if(abstractSubCondition.parameterList!=null&&abstractSubCondition.parameterList.size()>0){
+                for(Object parameter:abstractSubCondition.parameterList){
+                    ps.setObject(parameterIndex++,parameter);
+                }
+            }
+        }
     }
 }

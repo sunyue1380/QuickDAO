@@ -12,7 +12,7 @@ public class SQLUtil {
     public static String fetch(Class _class) {
         String key = "fetch_" + _class.getName();
         if (!sqlCache.containsKey(key)) {
-            String fetchSQL = "select " + columns(_class) + " from `" + StringUtil.Camel2Underline(_class.getSimpleName()) + "` where id = ?";
+            String fetchSQL = "select " + columns(_class,"t") + " from `" + StringUtil.Camel2Underline(_class.getSimpleName()) + "` as t where t.id = ?";
             sqlCache.put(key, fetchSQL);
         }
         return sqlCache.getString(key);
@@ -21,7 +21,7 @@ public class SQLUtil {
     public static String fetch(Class _class,String property) {
         String key = "fetch_" + _class.getName()+"_"+property;
         if (!sqlCache.containsKey(key)) {
-            String fetchSQL = "select " + columns(_class) + " from `" + StringUtil.Camel2Underline(_class.getSimpleName()) + "` where `"+property+"` = ?";
+            String fetchSQL = "select " + columns(_class,"t") + " from `" + StringUtil.Camel2Underline(_class.getSimpleName()) + "` as t where t.`"+property+"` = ?";
             sqlCache.put(key, fetchSQL);
         }
         return sqlCache.getString(key);
@@ -49,7 +49,7 @@ public class SQLUtil {
         String key = "insertIgnore_" + _class.getName();
         if (!sqlCache.containsKey(key)) {
             StringBuilder builder = new StringBuilder();
-            builder.append(insertIgnoreSQL+" " + StringUtil.Camel2Underline(_class.getSimpleName())+"(");
+            builder.append(insertIgnoreSQL+" `" + StringUtil.Camel2Underline(_class.getSimpleName())+"`(");
             Field[] fields = _class.getDeclaredFields();
             Field.setAccessible(fields,true);
             for(int i=0;i<fields.length;i++){
@@ -141,7 +141,7 @@ public class SQLUtil {
         return sqlCache.getBoolean(key);
     }
 
-    public static String columns(Class _class){
+    public static String columns(Class _class,String tableAlias){
         String key = "columnTable_"+_class.getName();
         if (!sqlCache.containsKey(key)){
             StringBuilder builder = new StringBuilder();
@@ -150,7 +150,7 @@ public class SQLUtil {
             Field.setAccessible(fields,true);
             for(Field field:fields){
                 if(field.getDeclaredAnnotation(Ignore.class)==null){
-                    builder.append("`"+StringUtil.Camel2Underline(field.getName())+"`,");
+                    builder.append(tableAlias+".`"+StringUtil.Camel2Underline(field.getName())+"`,");
                 }
             }
             builder.deleteCharAt(builder.length()-1);

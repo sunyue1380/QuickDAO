@@ -137,6 +137,8 @@ public class AbstractDAO implements DAO {
             if (SQLUtil.hasUniqueKey(instance.getClass())) {
                 String updateByUniqueKey = SQLUtil.updateByUniqueKey(instance.getClass());
                 ps = connection.prepareStatement(updateByUniqueKey);
+                logger.debug("insert:"+ps.toString());
+                //System.out.println(ps.toString());
                 //根据UniqueKey更新
                 StatementUtil.addUpdateByUniqueKeyBatch(instance, fields, ps);
                 effect = ps.executeBatch()[0];
@@ -144,6 +146,7 @@ public class AbstractDAO implements DAO {
                 //根据id更新
                 String updateById = SQLUtil.updateById(instance.getClass());
                 ps = connection.prepareStatement(updateById);
+                logger.debug("insert:"+ps.toString());
                 StatementUtil.addUpdateByIdBatch(instance, fields, id, ps);
                 effect = ps.executeBatch()[0];
             }
@@ -152,6 +155,7 @@ public class AbstractDAO implements DAO {
             String insertIgnore = SQLUtil.insertIgnore(instance.getClass(),getInsertIgnoreSQL());
             ps = connection.prepareStatement(insertIgnore);
             StatementUtil.addInsertIgnoreBatch(instance, fields, ps);
+            logger.debug("insert ignore:"+ps.toString());
             effect = ps.executeBatch()[0];
             if (effect == 0 && SQLUtil.hasUniqueKey(instance.getClass())) {
                 //有Unique Key则根据Unique Key更新
@@ -383,7 +387,7 @@ public class AbstractDAO implements DAO {
             entity.put("tableName",tableRs.getString(1));
 
             JSONArray properties = new JSONArray();
-            PreparedStatement propertyPs = connection.prepareStatement("show columns from " + tableRs.getString(1));
+            PreparedStatement propertyPs = connection.prepareStatement("show columns from `" + tableRs.getString(1)+"`");
             ResultSet propertiesRs = propertyPs.executeQuery();
             while (propertiesRs.next()) {
                 JSONObject property = new JSONObject();
@@ -421,7 +425,7 @@ public class AbstractDAO implements DAO {
             StringBuilder uniqueColumns = new StringBuilder();
             if(target==null&&!source.getBoolean("ignore")){
                 //新增数据库表
-                StringBuilder builder = new StringBuilder("create table "+tableName+"(");
+                StringBuilder builder = new StringBuilder("create table `"+tableName+"`(");
                 JSONArray properties = source.getJSONArray("properties");
                 for(int j=0;j<properties.size();j++){
                     JSONObject property = properties.getJSONObject(j);

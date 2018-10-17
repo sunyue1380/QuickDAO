@@ -3,15 +3,15 @@ package com.schoolwow.quickdao;
 import com.alibaba.fastjson.JSON;
 import com.schoolwow.quickdao.QuickDAO;
 import com.schoolwow.quickdao.dao.Condition;
-import com.schoolwow.quickdao.entity.NoUniqueKey;
-import com.schoolwow.quickdao.entity.User;
-import com.schoolwow.quickdao.entity.UserWrapper;
+import com.schoolwow.quickdao.dao.SubCondition;
+import com.schoolwow.quickdao.entity.*;
 import org.apache.commons.dbcp.BasicDataSource;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import java.util.Date;
 import java.util.List;
 
 public class CommonTest {
@@ -21,21 +21,42 @@ public class CommonTest {
 
     @BeforeClass
     public static void beforeClass(){
-        basicDataSource.setDriverClassName("org.h2.Driver");
-        basicDataSource.setUrl("jdbc:h2:c:/db/quickdao_h2.db;MODE=MySQL");
+//        basicDataSource.setDriverClassName("org.h2.Driver");
+//        basicDataSource.setUrl("jdbc:h2:c:/db/quickdao_h2.db;MODE=MySQL");
+
+        basicDataSource.setDriverClassName("com.mysql.jdbc.Driver");
+        basicDataSource.setUrl("jdbc:mysql://127.0.0.1:3306/quickdao");
+        basicDataSource.setUsername("root");
+        basicDataSource.setPassword("123456");
+        quickDAO = new QuickDAO(basicDataSource,packageName);
+
         quickDAO = new QuickDAO(basicDataSource,packageName);
     }
 
-    @Before
-    public void before(){
-        User user = new User();
-        user.setUsername("sunyue");
-        user.setPassword("123456");
-        user.setAge(27);
-        user.setNickname("nickname");
-        user.setAddress("ignore address");
-        System.out.println("before save:"+quickDAO.save(user));
-    }
+//    @Before
+//    public void before(){
+//        //插入一个用户
+//        User user = new User();
+//        user.setUsername("sunyue");
+//        user.setPassword("123456");
+//        user.setAge(27);
+//        user.setNickname("nickname");
+//        user.setAddress("ignore address");
+//        System.out.println("插入用户:"+quickDAO.save(user));
+//
+//        //插入一个订单
+//        Order order = new Order();
+//        order.setName("洗面奶X1");
+//        order.setPrice(100);
+//        order.setProduceTime(new Date());
+//        System.out.println("插入订单:"+quickDAO.save(order));
+//
+//        //插入用户订单表
+//        UserOrder userOrder = new UserOrder();
+//        userOrder.setUserId(user.getId());
+//        userOrder.setOrderId(order.getId());
+//        System.out.println("插入用户订单:"+quickDAO.save(userOrder));
+//    }
 
     @After
     public void after(){
@@ -80,6 +101,14 @@ public class CommonTest {
                 .done();
         long effect = condition.delete();
         System.out.println("queryDelete"+effect);
+    }
+
+    @Test
+    public void querySubCondition() {
+        Condition<Order> condition = quickDAO.query(Order.class);
+        SubCondition<UserOrder> subCondition = condition.joinTable(UserOrder.class,"id","order_id")
+                .addQuery("user_id",1);
+        System.out.println(JSON.toJSONString(condition.getList()));
     }
 
     @Test
@@ -129,6 +158,7 @@ public class CommonTest {
     @Test
     public void saveWrapper() {
         UserWrapper userWrapper = new UserWrapper();
+
         userWrapper.setAge(28);
         userWrapper.setNickname("ice");
         long effect = quickDAO.save(userWrapper);

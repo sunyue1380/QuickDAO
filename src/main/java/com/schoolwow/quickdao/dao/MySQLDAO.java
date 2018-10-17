@@ -32,7 +32,7 @@ public class MySQLDAO extends AbstractDAO{
             StringBuilder uniqueColumns = new StringBuilder();
             if(target==null&&!source.getBoolean("ignore")){
                 //新增数据库表
-                StringBuilder builder = new StringBuilder("create table "+tableName+"(");
+                StringBuilder builder = new StringBuilder("create table `"+tableName+"`(");
                 JSONArray properties = source.getJSONArray("properties");
                 for(int j=0;j<properties.size();j++){
                     JSONObject property = properties.getJSONObject(j);
