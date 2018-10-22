@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <appender name="stdout" class="ch.qos.logback.core.ConsoleAppender">
+        <Target>System.out</Target>
+        <encoder>
+            <pattern>%-5p [%d][%mdc{mdc_userId}] %C:%L - %m %n</pattern>
+            <charset>utf-8</charset>
+        </encoder>
+    </appender>
+    <root level="INFO">
+        <appender-ref ref="stdout" />
+    </root>
+</configuration>

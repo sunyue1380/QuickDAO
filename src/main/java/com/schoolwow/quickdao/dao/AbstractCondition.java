@@ -279,7 +279,7 @@ public class AbstractCondition<T> implements Condition<T>{
             done();
             hasDone = true;
         }
-        StringBuilder deleteSQLBuilder = new StringBuilder("delete from "+tableName+"as t ");
+        StringBuilder deleteSQLBuilder = new StringBuilder("delete t from "+tableName+" as t ");
         addJoinTableStatement(deleteSQLBuilder);
         String deleteSQL = deleteSQLBuilder.toString().replaceAll("\\s+"," ");
 

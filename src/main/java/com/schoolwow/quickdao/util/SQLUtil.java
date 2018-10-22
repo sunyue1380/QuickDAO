@@ -56,7 +56,7 @@ public class SQLUtil {
                 if(fields[i].getName().equals("id")||fields[i].getAnnotation(Ignore.class)!=null){
                     continue;
                 }
-                builder.append(StringUtil.Camel2Underline(fields[i].getName()) + ",");
+                builder.append("`"+StringUtil.Camel2Underline(fields[i].getName()) + "`,");
             }
             builder.deleteCharAt(builder.length()-1);
             builder.append(") values(");
