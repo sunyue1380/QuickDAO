@@ -29,6 +29,7 @@ public class AbstractCondition<T> implements Condition<T>{
     protected StringBuilder orderByBuilder = new StringBuilder();
     protected String limit = "";
     protected List parameterList = new ArrayList();
+    protected List updateParameterList;
     protected Class<T> _class;
     protected DataSource dataSource;
 
@@ -122,8 +123,11 @@ public class AbstractCondition<T> implements Condition<T>{
 
     @Override
     public Condition addUpdate(String property, Object value) {
+        if(updateParameterList==null){
+            updateParameterList = new ArrayList();
+        }
         setBuilder.append("t.`"+StringUtil.Camel2Underline(property)+"`=?,");
-        parameterList.add(value);
+        updateParameterList.add(value);
         return this;
     }
 
@@ -252,16 +256,20 @@ public class AbstractCondition<T> implements Condition<T>{
             return 0;
         }
 
-        StringBuilder updateSQLBuilder = new StringBuilder("update "+tableName+" as t ");
+        StringBuilder updateSQLBuilder = new StringBuilder("update "+tableName+" as t "+setBuilder.toString()+" ");
         addJoinTableStatement(updateSQLBuilder);
         String updateSQL = updateSQLBuilder.toString().replaceAll("\\s+"," ");
 
         long effect = 0;
         try (Connection connection = dataSource.getConnection();
              PreparedStatement ps = connection.prepareStatement(updateSQL);){
-            if(parameterList!=null&&parameterList.size()>0){
-                for(int i=0;i<parameterList.size();i++){
-                    ps.setObject((i+1),parameterList.get(i));
+            int index = 1;
+            if(updateParameterList!=null&&updateParameterList.size()>0){
+                for(Object parameter:updateParameterList){
+                    ps.setObject(index++,parameter);
+                }
+                for(Object parameter:parameterList){
+                    ps.setObject(index++,parameter);
                 }
             }
             addJoinTableParamters(ps);
