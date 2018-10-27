@@ -133,6 +133,18 @@ Car{
 }
 
 
+#### 注解
+QuickDAO提供部分注解:
+
+|注解名|说明|示例|
+|---|---|---|
+|@ColumnType|数据类型|@ColumnType("varchar(1024)")|
+|@DefaultValue|默认值|@DefaultValue("0")|
+|@Ignore|忽略该字段/忽略该类|@Ignore")|
+|@NotNull|是否非空|@NotNull|
+|@Unique|是否唯一|@Unique|
+
+
 #### 参与贡献
 
 1. Fork 本项目
