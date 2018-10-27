@@ -11,8 +11,8 @@ public interface Condition<T> {
     Condition addQuery(String property, Object value);
     Condition addQuery(String property, String operator, Object value);
     Condition addUpdate(String property, Object value);
-    Condition groupBy(String field);
-    Condition having(String query);
+//    Condition groupBy(String field);
+//    Condition having(String query);
     <T> SubCondition<T> joinTable(Class<T> _class, String primaryField, String joinTableField);
 
     Condition orderBy(String field);

@@ -137,17 +137,16 @@ public class AbstractDAO implements DAO {
             if (SQLUtil.hasUniqueKey(instance.getClass())) {
                 String updateByUniqueKey = SQLUtil.updateByUniqueKey(instance.getClass());
                 ps = connection.prepareStatement(updateByUniqueKey);
-                logger.debug("insert:"+ps.toString());
-                //System.out.println(ps.toString());
                 //根据UniqueKey更新
                 StatementUtil.addUpdateByUniqueKeyBatch(instance, fields, ps);
+                logger.debug("insert:"+ps.toString());
                 effect = ps.executeBatch()[0];
             } else {
                 //根据id更新
                 String updateById = SQLUtil.updateById(instance.getClass());
                 ps = connection.prepareStatement(updateById);
-                logger.debug("insert:"+ps.toString());
                 StatementUtil.addUpdateByIdBatch(instance, fields, id, ps);
+                logger.debug("insert:"+ps.toString());
                 effect = ps.executeBatch()[0];
             }
         } else {
@@ -179,7 +178,14 @@ public class AbstractDAO implements DAO {
                 }
             }
             List<Long> ids = condition.getValueList(Long.class,"id");
-            id.setLong(instance,ids.get(0).longValue());
+            if(ids.size()>0){
+                System.out.println(ids);
+                if(id.getType().isPrimitive()){
+                    id.setLong(instance,ids.get(0).longValue());
+                }else{
+                    id.set(instance,ids.get(0));
+                }
+            }
         }else{
             setLastInsertId(connection,instance,id);
         }

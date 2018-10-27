@@ -131,17 +131,17 @@ public class AbstractCondition<T> implements Condition<T>{
         return this;
     }
 
-    @Override
-    public Condition groupBy(String field) {
-        groupByBuilder.append("t.`"+StringUtil.Camel2Underline(field)+"`,");
-        return this;
-    }
-
-    @Override
-    public Condition having(String query) {
-        havingBuilder.append("("+query+") and ");
-        return this;
-    }
+//    @Override
+//    public Condition groupBy(String field) {
+//        groupByBuilder.append("t.`"+StringUtil.Camel2Underline(field)+"`,");
+//        return this;
+//    }
+//
+//    @Override
+//    public Condition having(String query) {
+//        havingBuilder.append("("+query+") and ");
+//        return this;
+//    }
 
     @Override
     public <T> SubCondition<T> joinTable(Class<T> _class, String primaryField, String joinTableField) {
