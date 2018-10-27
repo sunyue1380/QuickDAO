@@ -7,9 +7,9 @@
 * 使用中央仓库
 ```
 <dependency>
-  <groupId>com.schoolwow</groupId>
+  <groupId>cn.schoolwow</groupId>
   <artifactId>QuickDAO</artifactId>
-  <version>2.0-SNAPSHOT</version>
+  <version>1.0</version>
 </dependency>
 ```
 
