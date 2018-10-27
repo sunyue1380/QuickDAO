@@ -115,8 +115,8 @@ public class CommonTest {
     public void queryGroupBy() {
         Condition condition = quickDAO.query(User.class)
                 .addColumn("count(username) as u_count")
-                .groupBy("username")
-                .having("username = 'sunyue'")
+//                .groupBy("username")
+//                .having("username = 'sunyue'")
                 .done();
         List<Long> list = condition.getValueList(Long.class,"u_count");
         System.out.println("queryGroupBy:"+list.get(0));
