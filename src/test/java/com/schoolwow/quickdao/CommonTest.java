@@ -82,8 +82,8 @@ public class CommonTest {
                 .addQuery("age",">",10)
                 .addQuery("nickname = 'nickname'")
                 .addInQuery("id",new Long[]{1L})
-                .addNullQuery("address")
-                .done();
+                .addNullQuery("address");
+//                .done();
         long count = condition.count();
         System.out.println("count:"+count);
 
@@ -97,8 +97,8 @@ public class CommonTest {
     @Test
     public void queryDelete() {
         Condition condition = quickDAO.query(User.class)
-                .addQuery("username","sunyue")
-                .done();
+                .addQuery("username","sunyue");
+//                .done();
         long effect = condition.delete();
         System.out.println("queryDelete"+effect);
     }
@@ -114,10 +114,10 @@ public class CommonTest {
     @Test
     public void queryGroupBy() {
         Condition condition = quickDAO.query(User.class)
-                .addColumn("count(username) as u_count")
+                .addColumn("count(username) as u_count");
 //                .groupBy("username")
 //                .having("username = 'sunyue'")
-                .done();
+//                .done();
         List<Long> list = condition.getValueList(Long.class,"u_count");
         System.out.println("queryGroupBy:"+list.get(0));
     }
@@ -127,8 +127,8 @@ public class CommonTest {
         Condition condition = quickDAO.query(User.class)
                 .addQuery("username","sunyue")
                 .orderByDesc("id")
-                .limit(0,10)
-                .done();
+                .limit(0,10);
+//                .done();
         List<User> userList = condition.getList();
         System.out.println("queryOrderByLimit:"+JSON.toJSONString(userList));
     }

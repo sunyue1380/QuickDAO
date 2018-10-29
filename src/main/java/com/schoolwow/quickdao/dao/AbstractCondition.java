@@ -176,8 +176,7 @@ public class AbstractCondition<T> implements Condition<T>{
         return this;
     }
 
-    @Override
-    public Condition done() {
+    private Condition done() {
         if (columnBuilder.length() > 0) {
             columnBuilder.deleteCharAt(columnBuilder.length() - 1);
         }
@@ -357,7 +356,7 @@ public class AbstractCondition<T> implements Condition<T>{
             done();
             hasDone = true;
         }
-        StringBuilder getValueListSQLBuilder = new StringBuilder("select " + (columnBuilder.length()>0?columnBuilder.toString():"t.`"+column+"`") + " from " + tableName + " as t ");
+        StringBuilder getValueListSQLBuilder = new StringBuilder("select " + (columnBuilder.length()>0?columnBuilder.toString():"t.`"+column+"` as "+column+" ") + " from " + tableName + " as t ");
         addJoinTableStatement(getValueListSQLBuilder);
         getValueListSQLBuilder.append(groupByBuilder.toString() +" "+ havingBuilder.toString() + " " + orderByBuilder.toString() + " " + limit);
         String getValueListSQL = getValueListSQLBuilder.toString().replaceAll("\\s+"," ");

@@ -20,7 +20,7 @@ public interface Condition<T> {
     Condition limit(long offset, long limit);
     Condition addColumn(String field);
 
-    Condition done();
+//    Condition done();
 
     long count();
     long update();
