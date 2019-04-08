@@ -208,7 +208,7 @@ public class AbstractCondition<T> implements Condition<T>{
         return this;
     }
 
-    private Condition done() {
+    protected Condition done() {
         if (columnBuilder.length() > 0) {
             columnBuilder.deleteCharAt(columnBuilder.length() - 1);
         }

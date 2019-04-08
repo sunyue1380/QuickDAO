@@ -6,28 +6,20 @@ import cn.schoolwow.quickdao.entity.User;
 import cn.schoolwow.quickdao.util.ValidateUtil;
 import com.alibaba.fastjson.JSON;
 import org.apache.commons.dbcp.BasicDataSource;
-import org.h2.store.fs.FileUtils;
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import sun.tools.jar.CommandLine;
 
 import javax.sql.DataSource;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.StringReader;
 import java.sql.Connection;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.*;
-
-import static org.junit.Assert.*;
 
 @RunWith(Parameterized.class)
 public class DAOTest {
