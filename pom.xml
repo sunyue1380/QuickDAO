@@ -6,7 +6,7 @@
 
   <groupId>cn.schoolwow</groupId>
   <artifactId>QuickDAO</artifactId>
-  <version>1.0</version>
+  <version>2.1</version>
 
   <name>QuickDAO</name>
   <url>https://github.com/sunyue1380/QuickDAO</url>
@@ -27,6 +27,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
+    <argLine>-Dfile.encoding=UTF-8</argLine>
   </properties>
 
   <licenses>
@@ -79,7 +80,6 @@
       <version>1.4.197</version>
       <scope>test</scope>
     </dependency>
-
     <dependency>
       <groupId>org.xerial</groupId>
       <artifactId>sqlite-jdbc</artifactId>
