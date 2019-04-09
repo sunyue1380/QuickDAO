@@ -2,8 +2,13 @@ package cn.schoolwow.quickdao.condition;
 
 import cn.schoolwow.quickdao.dao.DAO;
 import cn.schoolwow.quickdao.dao.DAOTest;
-import cn.schoolwow.quickdao.entity.*;
+import cn.schoolwow.quickdao.entity.logic.PlayHistory;
+import cn.schoolwow.quickdao.entity.logic.PlayList;
+import cn.schoolwow.quickdao.entity.logic.Video;
+import cn.schoolwow.quickdao.entity.user.User;
+import cn.schoolwow.quickdao.entity.user.UserPlayList;
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
 import org.junit.Assert;
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -70,6 +75,16 @@ public class ConditionTest extends DAOTest{
                 .getList();
         logger.info("[查询用户名为sunyue@schoolwow.cn的对于视频标题为创业时代 01的播放历史]查询结果:{}", JSON.toJSON(playHistoryList));
         Assert.assertTrue(playListList.size()==1);
+    }
+
+    @Test
+    public void testGetCompositList() throws Exception {
+        JSONArray array = dao.query(Video.class)
+                .addQuery("id","1")
+                .joinTable(PlayList.class,"playlist_id","id")
+                .done()
+                .getCompositList();
+        logger.info("[查询视频id为1的带播单信息的视频信息]{}",array.toJSONString());
     }
 
     @Test

@@ -1,5 +1,7 @@
 package cn.schoolwow.quickdao.condition;
 
+import com.alibaba.fastjson.JSONArray;
+
 import java.util.List;
 
 public interface Condition<T> {
@@ -42,5 +44,7 @@ public interface Condition<T> {
     long update();
     long delete();
     List<T> getList();
+    /**获取复合列表(即返回关联表字段)*/
+    JSONArray getCompositList();
     List<T> getValueList(Class<T> _class, String column);
 }

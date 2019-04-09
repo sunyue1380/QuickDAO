@@ -24,11 +24,11 @@ public class MySQLDAO extends AbstractDAO{
 
     @Override
     protected String getUniqueStatement(String tableName, List<String> columns) {
-        StringBuilder uniqueSQLBuilder = new StringBuilder("alter table `"+tableName+"` add unique index "+tableName+"_");
+        StringBuilder uniqueSQLBuilder = new StringBuilder("alter table `"+tableName+"` add unique index `"+tableName+"_");
         columns.stream().forEach((column)->{
             uniqueSQLBuilder.append(column+"_");
         });
-        uniqueSQLBuilder.append("unique_index (");
+        uniqueSQLBuilder.append("unique_index` (");
         columns.stream().forEach((column)->{
             uniqueSQLBuilder.append("`"+column+"`,");
         });

@@ -1,21 +1,25 @@
 package cn.schoolwow.quickdao.util;
 
-import cn.schoolwow.quickdao.annotation.Ignore;
-import cn.schoolwow.quickdao.annotation.Unique;
+import cn.schoolwow.quickdao.annotation.*;
+import cn.schoolwow.quickdao.condition.AbstractCondition;
+import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 
+import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 public class ReflectionUtil {
     private static JSONObject sqlCache = new JSONObject();
+    private static Map<Class,Field[]> classFieldsCache = new HashMap<>();
+
     /**获取id属性*/
     public static Field getId(Class _class) throws NoSuchFieldException {
         Field id = _class.getDeclaredField("id");
@@ -29,9 +33,12 @@ public class ReflectionUtil {
     }
     /**获取类属性*/
     public static Field[] getFields(Class _class){
-        Field[] fields = _class.getDeclaredFields();
-        Field.setAccessible(fields,true);
-        return fields;
+        if(!classFieldsCache.containsKey(_class)){
+            Field[] fields = _class.getDeclaredFields();
+            Field.setAccessible(fields,true);
+            classFieldsCache.put(_class,fields);
+        }
+        return classFieldsCache.get(_class);
     }
     /**该类是否有唯一性约束*/
     public static boolean hasUniqueKey(Class _class){

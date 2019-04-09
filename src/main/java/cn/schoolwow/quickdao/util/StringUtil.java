@@ -21,14 +21,4 @@ public class StringUtil {
         }
         return sb.toString();
     }
-
-    /**获取limit子句*/
-    public static String getLimit(int pageNumber,int pageSize){
-        String limit = null;
-        int offset = pageNumber*pageSize;
-        if(pageSize>0){
-            limit = "limit "+offset+","+pageSize;
-        }
-        return limit;
-    }
 }

@@ -1,21 +1,19 @@
-package cn.schoolwow.quickdao.entity;
+package cn.schoolwow.quickdao.entity.user;
 
+import cn.schoolwow.quickdao.annotation.DefaultValue;
 import cn.schoolwow.quickdao.annotation.Unique;
 
-import java.util.Date;
-
-/**用户播单浏览历史*/
-public class UserPlayListHistory {
-    /**主键*/
+public class UserPlayList {
+    /** 唯一标识 */
     private long id;
-    /**用户id*/
+    /** 用户id */
     @Unique
+    @DefaultValue("0")
     private long userId;
-    /**播单id*/
+    /** 播单id */
     @Unique
+    @DefaultValue("0")
     private long playlistId;
-    /**浏览时间*/
-    private Date time;
 
     public long getId() {
         return id;
@@ -39,13 +37,5 @@ public class UserPlayListHistory {
 
     public void setPlaylistId(long playlistId) {
         this.playlistId = playlistId;
-    }
-
-    public Date getTime() {
-        return time;
-    }
-
-    public void setTime(Date time) {
-        this.time = time;
     }
 }

@@ -1,4 +1,4 @@
-package cn.schoolwow.quickdao.entity;
+package cn.schoolwow.quickdao.entity.user;
 
 import cn.schoolwow.quickdao.annotation.ColumnType;
 import cn.schoolwow.quickdao.annotation.NotNull;

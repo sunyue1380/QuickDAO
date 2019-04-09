@@ -30,12 +30,12 @@ public class SQLiteDAO extends AbstractDAO{
 
     @Override
     protected String getUniqueStatement(String tableName, List<String> columns) {
-        StringBuilder uniqueSQLBuilder = new StringBuilder("create index "+tableName+"_");
+        StringBuilder uniqueSQLBuilder = new StringBuilder("create index `"+tableName+"_");
         columns.stream().forEach((column)->{
             uniqueSQLBuilder.append(column+"_");
         });
         uniqueSQLBuilder.deleteCharAt(uniqueSQLBuilder.length()-1);
-        uniqueSQLBuilder.append(" on "+tableName+"(");
+        uniqueSQLBuilder.append("` on `"+tableName+"`(");
         columns.stream().forEach((column)->{
             uniqueSQLBuilder.append("`"+column+"`,");
         });
@@ -55,7 +55,7 @@ public class SQLiteDAO extends AbstractDAO{
             entity.put("tableName",tableRs.getString(1));
 
             JSONArray properties = new JSONArray();
-            PreparedStatement propertyPs = connection.prepareStatement("PRAGMA table_info(" + tableRs.getString(1) + ")");
+            PreparedStatement propertyPs = connection.prepareStatement("PRAGMA table_info(`" + tableRs.getString(1) + "`)");
             ResultSet propertiesRs = propertyPs.executeQuery();
             while (propertiesRs.next()) {
                 JSONObject property = new JSONObject();

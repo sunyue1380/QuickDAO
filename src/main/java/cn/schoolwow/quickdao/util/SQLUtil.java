@@ -6,16 +6,19 @@ import com.alibaba.fastjson.JSONObject;
 
 import java.lang.reflect.Field;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class SQLUtil {
     private static JSONObject sqlCache = new JSONObject();
+    public final static Map<Class,String> classTableMap = new HashMap<>();
 
     /**返回fetch语句*/
     public static String fetch(Class _class,String property) {
         String key = "fetch_" + _class.getName()+"_"+property;
         if (!sqlCache.containsKey(key)) {
-            String fetchSQL = "select " + columns(_class,"t") + " from `" + StringUtil.Camel2Underline(_class.getSimpleName()) + "` as t where t.`"+property+"` = ?";
+            String fetchSQL = "select " + columns(_class,"t") + " from `" + classTableMap.get(_class) + "` as t where t.`"+property+"` = ?";
             sqlCache.put(key, fetchSQL);
         }
         return sqlCache.getString(key);
@@ -25,7 +28,7 @@ public class SQLUtil {
     public static String delete(Class _class,String property) {
         String key = "delete_" + _class.getName()+"_"+property;
         if (!sqlCache.containsKey(key)) {
-            String fetchSQL = "delete from `" + StringUtil.Camel2Underline(_class.getSimpleName()) + "` where `"+property+"` = ?";
+            String fetchSQL = "delete from `" + classTableMap.get(_class) + "` where `"+property+"` = ?";
             sqlCache.put(key, fetchSQL);
         }
         return sqlCache.getString(key);
@@ -36,7 +39,7 @@ public class SQLUtil {
         String key = "insertIgnore_" + insertIgnoreSQL+"_"+_class.getName();
         if (!sqlCache.containsKey(key)) {
             StringBuilder builder = new StringBuilder();
-            builder.append(insertIgnoreSQL+" `" + StringUtil.Camel2Underline(_class.getSimpleName())+"`(");
+            builder.append(insertIgnoreSQL+" `" + classTableMap.get(_class)+"`(");
             Field[] fields = _class.getDeclaredFields();
             Field.setAccessible(fields,true);
             for(int i=0;i<fields.length;i++){
@@ -67,7 +70,7 @@ public class SQLUtil {
         String key = "updateByUniqueKey_" + _class.getName();
         if (!sqlCache.containsKey(key)) {
             StringBuilder builder = new StringBuilder();
-            builder.append("update " + StringUtil.Camel2Underline(_class.getSimpleName())+" set ");
+            builder.append("update `" + classTableMap.get(_class)+"` set ");
             Field[] fields = _class.getDeclaredFields();
             Field.setAccessible(fields,true);
             for(int i=0;i<fields.length;i++){
@@ -94,7 +97,7 @@ public class SQLUtil {
         String key = "updateById_"+_class.getName();
         if(!sqlCache.containsKey(key)){
             StringBuilder builder = new StringBuilder();
-            builder.append("update " + StringUtil.Camel2Underline(_class.getSimpleName()) + " set ");
+            builder.append("update `" + classTableMap.get(_class) + "` set ");
             Field[] fields = _class.getDeclaredFields();
             Field.setAccessible(fields,true);
             for(int i=0;i<fields.length;i++){
@@ -112,12 +115,11 @@ public class SQLUtil {
 
     /**返回列名的SQL语句*/
     public static String columns(Class _class,String tableAlias){
-        String key = "columnTable_"+_class.getName();
+        String key = "columnTable_"+_class.getName()+"_"+tableAlias;
         if (!sqlCache.containsKey(key)){
             StringBuilder builder = new StringBuilder();
             //排除ignore注解在字段
-            Field[] fields = _class.getDeclaredFields();
-            Field.setAccessible(fields,true);
+            Field[] fields = ReflectionUtil.getFields(_class);
             for(Field field:fields){
                 if(field.getDeclaredAnnotation(Ignore.class)==null){
                     String columnName = StringUtil.Camel2Underline(field.getName());

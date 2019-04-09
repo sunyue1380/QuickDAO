@@ -1,18 +1,23 @@
 package cn.schoolwow.quickdao.condition;
 
+import cn.schoolwow.quickdao.annotation.Ignore;
 import cn.schoolwow.quickdao.util.ReflectionUtil;
 import cn.schoolwow.quickdao.util.SQLUtil;
 import cn.schoolwow.quickdao.util.StringUtil;
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.sql.DataSource;
+import java.lang.reflect.Field;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 
 public class AbstractCondition<T> implements Condition<T>{
@@ -51,12 +56,13 @@ public class AbstractCondition<T> implements Condition<T>{
     protected String tableName = null;
     /**是否已经完成条件构建*/
     protected boolean hasDone = false;
+    private JSONArray entityList = new JSONArray();
 
     private static String[] patterns = new String[]{"%","_","[","[^","[!","]"};
 
     public AbstractCondition(Class<T> _class, DataSource dataSource) {
         this._class = _class;
-        this.tableName = StringUtil.Camel2Underline(_class.getSimpleName());
+        this.tableName = "`"+SQLUtil.classTableMap.get(_class)+"`";
         this.dataSource = dataSource;
     }
 
@@ -171,8 +177,7 @@ public class AbstractCondition<T> implements Condition<T>{
 
     @Override
     public <T> SubCondition<T> joinTable(Class<T> _class, String primaryField, String joinTableField) {
-        String tableNameAlias = "t"+joinTableIndex;
-        joinTableIndex++;
+        String tableNameAlias = "t"+(joinTableIndex++);
         SubCondition<T> subCondition = new AbstractSubCondition<T>(_class,tableNameAlias,primaryField,joinTableField,this);
         subConditionList.add((AbstractSubCondition) subCondition);
         return subCondition;
@@ -247,11 +252,9 @@ public class AbstractCondition<T> implements Condition<T>{
 
     @Override
     public long count() {
-        if(!hasDone){
-            done();
-        }
+        assureDone();
         sqlBuilder.setLength(0);
-        sqlBuilder.append("select count(1) from `"+tableName+"` as t ");
+        sqlBuilder.append("select count(1) from "+tableName+" as t ");
         addJoinTableStatement();
         sql = sqlBuilder.toString().replaceAll("\\s+"," ");
         //设置参数
@@ -279,9 +282,7 @@ public class AbstractCondition<T> implements Condition<T>{
 
     @Override
     public long update() {
-        if(!hasDone){
-            done();
-        }
+        assureDone();
         if(setBuilder.length()==0){
             logger.warn("请先调用addUpdate方法!");
             return 0;
@@ -316,9 +317,7 @@ public class AbstractCondition<T> implements Condition<T>{
 
     @Override
     public long delete() {
-        if(!hasDone){
-            done();
-        }
+        assureDone();
         sqlBuilder.setLength(0);
         sqlBuilder.append("delete t from "+tableName+" as t ");
         addJoinTableStatement();
@@ -342,11 +341,9 @@ public class AbstractCondition<T> implements Condition<T>{
 
     @Override
     public List<T> getList() {
-        if(!hasDone){
-            done();
-        }
+        assureDone();
         sqlBuilder.setLength(0);
-        sqlBuilder.append("select "+SQLUtil.columns(_class,"t")+" from `"+tableName+"` as t ");
+        sqlBuilder.append("select "+SQLUtil.columns(_class,"t")+" from "+tableName+" as t ");
         addJoinTableStatement();
         sqlBuilder.append(groupByBuilder.toString()+" "+havingBuilder.toString()+" "+orderByBuilder.toString()+" "+limit);
         sql = sqlBuilder.toString().replaceAll("\\s+"," ");
@@ -371,12 +368,98 @@ public class AbstractCondition<T> implements Condition<T>{
     }
 
     @Override
-    public List<T> getValueList(Class<T> _class, String column) {
-        if(!hasDone){
-            done();
-        }
+    public JSONArray getCompositList() {
+        assureDone();
         sqlBuilder.setLength(0);
-        sqlBuilder.append("select "+(columnBuilder.length()>0?columnBuilder.toString():"t.`"+column+"`")+" from `"+tableName+"` as t ");
+        sqlBuilder.append("select "+SQLUtil.columns(_class,"t"));
+        for(AbstractSubCondition subCondition:subConditionList){
+            sqlBuilder.append(","+SQLUtil.columns(subCondition._class,subCondition.tableAliasName));
+        }
+        sqlBuilder.append(" from "+tableName+" as t ");
+        addJoinTableStatement();
+        sqlBuilder.append(groupByBuilder.toString()+" "+havingBuilder.toString()+" "+orderByBuilder.toString()+" "+limit);
+        sql = sqlBuilder.toString().replaceAll("\\s+"," ");
+
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sql);){
+            for(int i=0;i<parameterList.size();i++){
+                ps.setObject((i+1),parameterList.get(i));
+                replaceParameter(parameterList.get(i));
+            }
+            addJoinTableParamters(ps);
+            logger.debug("[getList]执行SQL:{}",sql);
+            ResultSet resultSet = ps.executeQuery();
+            JSONArray array = new JSONArray((int)count());
+            while(resultSet.next()){
+                JSONObject o = new JSONObject();
+                Field[] fields = ReflectionUtil.getFields(_class);
+                for(Field field:fields){
+                    if(field.getAnnotation(Ignore.class)!=null){
+                        continue;
+                    }
+                    String plainColumnName = StringUtil.Camel2Underline(field.getName());
+                    String columnName = "t_"+plainColumnName;
+                    String type = field.getType().getSimpleName().toLowerCase();
+                    //根据类型进行映射
+                    switch(type){
+                        case "int":{o.put(plainColumnName,resultSet.getInt(columnName));}break;
+                        case "integer":{o.put(plainColumnName,resultSet.getInt(columnName));}break;
+                        case "long":{o.put(plainColumnName,resultSet.getLong(columnName));};break;
+                        case "boolean":{
+                            o.put(plainColumnName,resultSet.getBoolean(columnName));
+                        };break;
+                        case "date":{
+                            o.put(plainColumnName,resultSet.getDate(columnName));
+                        };break;
+                        default:{
+                            o.put(plainColumnName,resultSet.getObject(columnName));
+                        }
+                    }
+                }
+
+                for(AbstractCondition.AbstractSubCondition subCondition:subConditionList){
+                    JSONObject subObject = new JSONObject();
+                    fields = ReflectionUtil.getFields(subCondition._class);
+                    for(Field field:fields){
+                        if(field.getAnnotation(Ignore.class)!=null){
+                            continue;
+                        }
+                        String plainColumnName = StringUtil.Camel2Underline(field.getName());
+                        String columnName = subCondition.tableAliasName+"_"+plainColumnName;
+                        String type = field.getType().getSimpleName().toLowerCase();
+                        //根据类型进行映射
+                        switch(type){
+                            case "int":{subObject.put(plainColumnName,resultSet.getInt(columnName));}break;
+                            case "integer":{subObject.put(plainColumnName,resultSet.getInt(columnName));}break;
+                            case "long":{subObject.put(plainColumnName,resultSet.getLong(columnName));};break;
+                            case "boolean":{
+                                subObject.put(plainColumnName,resultSet.getBoolean(columnName));
+                            };break;
+//                            case "date":{
+//                                subObject.put(plainColumnName,resultSet.getDate(columnName));
+//                            };break;
+                            default:{
+                                subObject.put(plainColumnName,resultSet.getObject(columnName));
+                            }
+                        }
+                    }
+                    o.put(StringUtil.Camel2Underline(subCondition._class.getSimpleName()),subObject);
+                }
+                array.add(o);
+            }
+            resultSet.close();
+            return array;
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    @Override
+    public List<T> getValueList(Class<T> _class, String column) {
+        assureDone();
+        sqlBuilder.setLength(0);
+        sqlBuilder.append("select "+(columnBuilder.length()>0?columnBuilder.toString():"t.`"+column+"`")+" from "+tableName+" as t ");
         addJoinTableStatement();
         sqlBuilder.append(groupByBuilder.toString()+" "+havingBuilder.toString()+" "+orderByBuilder.toString()+" "+limit);
         sql = sqlBuilder.toString().replaceAll("\\s+"," ");
@@ -403,8 +486,7 @@ public class AbstractCondition<T> implements Condition<T>{
     /**添加外键关联查询条件*/
     private void addJoinTableStatement() {
         for (AbstractSubCondition abstractSubCondition : subConditionList) {
-            String subTableName = StringUtil.Camel2Underline(abstractSubCondition._class.getSimpleName());
-            sqlBuilder.append("join " + subTableName + " as " + abstractSubCondition.tableAliasName + " on t." + StringUtil.Camel2Underline(abstractSubCondition.primaryField) + " = " + StringUtil.Camel2Underline(abstractSubCondition.tableAliasName) + "." + abstractSubCondition.joinTableField + " ");
+            sqlBuilder.append("join `" + SQLUtil.classTableMap.get(abstractSubCondition._class) + "` as " + abstractSubCondition.tableAliasName + " on t." + StringUtil.Camel2Underline(abstractSubCondition.primaryField) + " = " + StringUtil.Camel2Underline(abstractSubCondition.tableAliasName) + "." + abstractSubCondition.joinTableField + " ");
         }
         //添加查询条件
         sqlBuilder.append(whereBuilder.toString());
@@ -442,6 +524,13 @@ public class AbstractCondition<T> implements Condition<T>{
             default: {
                 sql = sql.replaceFirst("\\?",parameter.toString());
             }
+        }
+    }
+
+    /**确保执行了done方法*/
+    private void assureDone(){
+        if(!hasDone){
+            done();
         }
     }
 

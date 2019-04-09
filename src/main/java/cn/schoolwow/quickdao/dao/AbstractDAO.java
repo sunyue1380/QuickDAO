@@ -296,7 +296,7 @@ public abstract class AbstractDAO implements DAO {
     public long clear(Class _class){
         try {
             Connection connection = dataSource.getConnection();
-            String sql = "delete from " + StringUtil.Camel2Underline(_class.getSimpleName());
+            String sql = "delete from `" + SQLUtil.classTableMap.get(_class)+"`";
             logger.debug("[删除{}表]执行SQL:{}", _class.getSimpleName(),sql);
             PreparedStatement ps = connection.prepareStatement(sql);
             long effect = ps.executeUpdate();
@@ -311,54 +311,71 @@ public abstract class AbstractDAO implements DAO {
 
     /**获取实体类信息同时过滤*/
     protected JSONArray getEntityInfo(String packageName,Predicate<Class> predicate) throws IOException, ClassNotFoundException {
-        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-        Enumeration<URL> enumeration = classLoader.getResources(packageName.replace(".", "/"));
-        List<Class> classes = new ArrayList<>();
         String packageNamePath = packageName.replace(".", "/");
-        while (enumeration.hasMoreElements()) {
-            URL url = enumeration.nextElement();
-            //判断协议
-            if ("file".equals(url.getProtocol())) {
-                String packagePath = url.getPath().replaceAll("%20", " ");
-                File root = new File(packagePath);
-                if (root.isDirectory()) {
-                    //默认只加一级文件夹下的实体类
-                    for (File file : root.listFiles(file -> file.isFile() && file.getName().endsWith(".class"))) {
-                        String className = packageName + "." + file.getName().substring(0, file.getName().length() - 6);
-                        classes.add(classLoader.loadClass(className));
+        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        URL url = classLoader.getResource(packageNamePath);
+        List<Class> classList = new ArrayList<>();
+        if("file".equals(url.getProtocol())){
+            File file = new File(url.getFile());
+            System.out.println(file.getAbsolutePath());
+            if(!file.isDirectory()){
+                throw new IllegalArgumentException("包名不是合法的文件夹!");
+            }
+            String basePath = new File(classLoader.getResource("").getFile()).getAbsolutePath();
+            Stack<File> stack = new Stack<>();
+            stack.push(file);
+            while(!stack.isEmpty()){
+                file = stack.pop();
+                for(File f:file.listFiles()){
+                    if(f.isDirectory()){
+                        stack.push(f);
+                    }else if(f.isFile()&&f.getName().endsWith(".class")){
+                        String className = f.getAbsolutePath().replace(basePath,"").replace("\\",".");
+                        className = className.substring(1,className.length()-6);
+                        classList.add(Class.forName(className));
                     }
                 }
-            } else if ("jar".equals(url.getProtocol())) {
-                JarURLConnection jarURLConnection = (JarURLConnection) url.openConnection();
-                if (null != jarURLConnection) {
-                    JarFile jarFile = jarURLConnection.getJarFile();
-                    if (null != jarFile) {
-                        Enumeration<JarEntry> jarEntries = jarFile.entries();
-                        while (jarEntries.hasMoreElements()) {
-                            JarEntry jarEntry = jarEntries.nextElement();
-                            String jarEntryName = jarEntry.getName();
-                            if (jarEntryName.contains(packageNamePath) && jarEntryName.endsWith(".class")) { //是否是类,是类进行加载
-                                String className = jarEntryName.substring(0, jarEntryName.lastIndexOf(".")).replaceAll("/", ".");
-                                classes.add(classLoader.loadClass(className));
-                            }
+            }
+        }else if("jar".equals(url.getProtocol())){
+            JarURLConnection jarURLConnection = (JarURLConnection) url.openConnection();
+            if (null != jarURLConnection) {
+                JarFile jarFile = jarURLConnection.getJarFile();
+                System.out.println(jarFile);
+                System.out.println(JSON.toJSONString(jarFile));
+                if (null != jarFile) {
+                    Enumeration<JarEntry> jarEntries = jarFile.entries();
+                    while (jarEntries.hasMoreElements()) {
+                        JarEntry jarEntry = jarEntries.nextElement();
+                        String jarEntryName = jarEntry.getName();
+                        if (jarEntryName.contains(packageNamePath) && jarEntryName.endsWith(".class")) { //是否是类,是类进行加载
+                            String className = jarEntryName.substring(0, jarEntryName.lastIndexOf(".")).replaceAll("/", ".");
+                            classList.add(Class.forName(className));
                         }
                     }
                 }
             }
         }
-        if (classes.size() == 0) {
+        System.out.println(classList);
+
+        if (classList.size() == 0) {
             return new JSONArray();
         }
         //过滤类名或者包名
         if(predicate!=null){
-            classes = classes.stream().filter(predicate).collect(Collectors.toList());
+            classList = classList.stream().filter(predicate).collect(Collectors.toList());
         }
         JSONArray entityList = new JSONArray();
-        for (Class c : classes) {
+        for (Class c : classList) {
             JSONObject entity = new JSONObject();
             entity.put("ignore", c.getDeclaredAnnotation(Ignore.class) != null);
             //支持实体包多个文件夹
-            entity.put("tableName", StringUtil.Camel2Underline(c.getSimpleName()));
+            if((packageName.length()+c.getSimpleName().length()+1)==c.getName().length()){
+                entity.put("tableName",StringUtil.Camel2Underline(c.getSimpleName()));
+            }else{
+                String prefix = c.getName().substring(packageName.length()+1,c.getName().lastIndexOf(".")).replace(".","_");
+                entity.put("tableName",prefix+"@"+StringUtil.Camel2Underline(c.getSimpleName()));
+            }
+            SQLUtil.classTableMap.put(c,entity.getString("tableName"));
             entity.put("className",c.getSimpleName());
             //添加表属性
             Field[] fields = c.getDeclaredFields();
@@ -384,7 +401,6 @@ public abstract class AbstractDAO implements DAO {
                 properties.add(property);
             }
             entity.put("properties", properties);
-            entityList.add(entity);
         }
         return entityList;
     }

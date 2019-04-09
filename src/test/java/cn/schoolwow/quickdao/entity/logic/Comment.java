@@ -1,4 +1,4 @@
-package cn.schoolwow.quickdao.entity;
+package cn.schoolwow.quickdao.entity.logic;
 
 import java.util.Date;
 
