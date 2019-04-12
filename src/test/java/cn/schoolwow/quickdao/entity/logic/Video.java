@@ -35,6 +35,8 @@ public class Video {
   /** 播单id */
   private long playlistId;
 
+  private PlayList playList;
+
   public long getId() {
     return id;
   }
@@ -137,5 +139,13 @@ public class Video {
 
   public void setPlaylistId(long playlistId) {
     this.playlistId = playlistId;
+  }
+
+  public PlayList getPlayList() {
+    return playList;
+  }
+
+  public void setPlayList(PlayList playList) {
+    this.playList = playList;
   }
 }

@@ -2,6 +2,7 @@ package cn.schoolwow.quickdao.entity.logic;
 
 import cn.schoolwow.quickdao.annotation.NotNull;
 import cn.schoolwow.quickdao.annotation.Unique;
+import cn.schoolwow.quickdao.entity.user.User;
 
 import java.util.Date;
 
@@ -16,12 +17,16 @@ public class PlayHistory {
     @NotNull
     @Unique
     private long userId;
+
+    private User user;
     /**
      * 视频id
      */
     @NotNull
     @Unique
     private long videoId;
+
+    private Video video;
     /**
      * 已观看时间(单位:秒)
      */
@@ -80,5 +85,21 @@ public class PlayHistory {
 
     public void setUpdateTime(Date updateTime) {
         this.updateTime = updateTime;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
+    }
+
+    public Video getVideo() {
+        return video;
+    }
+
+    public void setVideo(Video video) {
+        this.video = video;
     }
 }

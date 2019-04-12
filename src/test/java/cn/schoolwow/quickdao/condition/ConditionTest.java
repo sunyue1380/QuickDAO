@@ -34,7 +34,7 @@ public class ConditionTest extends DAOTest{
                 .orderByDesc("id")
                 .page(1,10)
                 .getList();
-        logger.info("[测试查询功能]查询结果:{}", JSON.toJSON(userList));
+        logger.info("[测试查询功能]查询结果:{}", JSON.toJSONString(userList));
         Assert.assertTrue(userList.size()==2);
     }
 
@@ -79,12 +79,26 @@ public class ConditionTest extends DAOTest{
 
     @Test
     public void testGetCompositList() throws Exception {
-        JSONArray array = dao.query(Video.class)
+        List<Video> videoList = dao.query(Video.class)
                 .addQuery("id","1")
                 .joinTable(PlayList.class,"playlist_id","id")
                 .done()
                 .getCompositList();
+        logger.info("[查询视频id为1的带播单信息的视频信息]{}",JSON.toJSONString(videoList));
+        Assert.assertTrue(videoList.get(0).getPlayList()!=null);
+    }
+
+    @Test
+    public void testGetCompositArray() throws Exception {
+        JSONArray array = dao.query(Video.class)
+                .addQuery("id","1")
+                .joinTable(PlayList.class,"playlist_id","id")
+                .done()
+                .getCompositArray();
         logger.info("[查询视频id为1的带播单信息的视频信息]{}",array.toJSONString());
+        List<Video> videoList = array.toJavaList(Video.class);
+        System.out.println(videoList);
+        System.out.println(videoList.get(0).getPlayList());
     }
 
     @Test

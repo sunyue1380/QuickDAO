@@ -23,6 +23,7 @@ import javax.sql.DataSource;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.*;
 
@@ -71,11 +72,11 @@ public class DAOTest {
 
     @Before
     public void before() throws SQLException, FileNotFoundException {
+        //TODO 数据库表存在时才执行
         Connection connection = dataSource.getConnection();
         String url = connection.getMetaData().getURL();
         logger.info("[数据源地址]{}",url);
         connection.setAutoCommit(false);
-        //清除表
         Class[] classes = new Class[]{User.class,Comment.class, PlayList.class, UserPlayList.class, Video.class, PlayHistory.class};
         for(Class c:classes){
             String tableName = SQLUtil.classTableMap.get(c);
@@ -154,7 +155,6 @@ public class DAOTest {
     public void save() throws Exception {
         //根据UniqueKey更新
         User user = dao.fetch(User.class,1);
-        user.setId(-1);
         user.setPassword("123456");
         long effect = dao.save(user);
         logger.debug("[把用户名为sunyue@schoolwow.cn的密码改为123456]:{}",effect);

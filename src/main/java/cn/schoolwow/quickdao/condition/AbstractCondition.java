@@ -368,7 +368,13 @@ public class AbstractCondition<T> implements Condition<T>{
     }
 
     @Override
-    public JSONArray getCompositList() {
+    public List<T> getCompositList() {
+        JSONArray array = getCompositArray();
+        return array.toJavaList(_class);
+    }
+
+    @Override
+    public JSONArray getCompositArray() {
         assureDone();
         sqlBuilder.setLength(0);
         sqlBuilder.append("select "+SQLUtil.columns(_class,"t"));
@@ -397,22 +403,21 @@ public class AbstractCondition<T> implements Condition<T>{
                     if(field.getAnnotation(Ignore.class)!=null){
                         continue;
                     }
-                    String plainColumnName = StringUtil.Camel2Underline(field.getName());
-                    String columnName = "t_"+plainColumnName;
+                    String columnName = "t_"+StringUtil.Camel2Underline(field.getName());
                     String type = field.getType().getSimpleName().toLowerCase();
                     //根据类型进行映射
                     switch(type){
-                        case "int":{o.put(plainColumnName,resultSet.getInt(columnName));}break;
-                        case "integer":{o.put(plainColumnName,resultSet.getInt(columnName));}break;
-                        case "long":{o.put(plainColumnName,resultSet.getLong(columnName));};break;
+                        case "int":{o.put(field.getName(),resultSet.getInt(columnName));}break;
+                        case "integer":{o.put(field.getName(),resultSet.getInt(columnName));}break;
+                        case "long":{o.put(field.getName(),resultSet.getLong(columnName));};break;
                         case "boolean":{
-                            o.put(plainColumnName,resultSet.getBoolean(columnName));
+                            o.put(field.getName(),resultSet.getBoolean(columnName));
                         };break;
                         case "date":{
-                            o.put(plainColumnName,resultSet.getDate(columnName));
+                            o.put(field.getName(),resultSet.getDate(columnName));
                         };break;
                         default:{
-                            o.put(plainColumnName,resultSet.getObject(columnName));
+                            o.put(field.getName(),resultSet.getObject(columnName));
                         }
                     }
                 }

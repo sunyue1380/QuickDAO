@@ -150,30 +150,34 @@ public abstract class AbstractDAO implements DAO {
             Class _class = instance.getClass();
             PreparedStatement ps = null;
             long effect = 0;
-            if (ReflectionUtil.hasUniqueKey(_class)) {
-                //如果有唯一性约束则以唯一性约束更新
-                String updateByUniqueKey = SQLUtil.updateByUniqueKey(instance.getClass());
-                ps = connection.prepareStatement(updateByUniqueKey);
-                logger.debug("[根据唯一性约束更新]执行SQL:{}",ReflectionUtil.setValueWithUpdateByUniqueKey(ps,instance,updateByUniqueKey));
-                effect = ps.executeUpdate();
-                //获取id并设置
-                Condition condition = query(instance.getClass());
-                Field[] fields = ReflectionUtil.getFields(_class);
-                for(Field field:fields){
-                    if(field.getAnnotation(Unique.class)!=null){
-                        condition.addQuery(StringUtil.Camel2Underline(field.getName()),field.get(instance));
+
+            //先判断有无id,无id则直接插入,有id则再判断是否有唯一性约束
+            if(ReflectionUtil.hasId(instance)) {
+                if (ReflectionUtil.hasUniqueKey(_class)) {
+                    //如果有唯一性约束则以唯一性约束更新
+                    String updateByUniqueKey = SQLUtil.updateByUniqueKey(instance.getClass());
+                    ps = connection.prepareStatement(updateByUniqueKey);
+                    logger.debug("[根据唯一性约束更新]执行SQL:{}",ReflectionUtil.setValueWithUpdateByUniqueKey(ps,instance,updateByUniqueKey));
+                    effect = ps.executeUpdate();
+                    //获取id并设置
+                    Condition condition = query(instance.getClass());
+                    Field[] fields = ReflectionUtil.getFields(_class);
+                    for(Field field:fields){
+                        if(field.getAnnotation(Unique.class)!=null){
+                            condition.addQuery(StringUtil.Camel2Underline(field.getName()),field.get(instance));
+                        }
                     }
+                    List<Long> ids = condition.getValueList(Long.class,"id");
+                    if(ids.size()>0){
+                        ReflectionUtil.setId(instance,ids.get(0));
+                    }
+                }else{
+                    //根据id更新
+                    String updateById = SQLUtil.updateById(instance.getClass());
+                    ps = connection.prepareStatement(updateById);
+                    logger.debug("[根据id更新]执行SQL:{}", ReflectionUtil.setValueWithUpdateById(ps, instance, updateById));
+                    effect = ps.executeUpdate();
                 }
-                List<Long> ids = condition.getValueList(Long.class,"id");
-                if(ids.size()>0){
-                    ReflectionUtil.setId(instance,ids.get(0));
-                }
-            }else if(ReflectionUtil.hasId(instance)){
-                //根据id更新
-                String updateById = SQLUtil.updateById(instance.getClass());
-                ps = connection.prepareStatement(updateById);
-                logger.debug("[根据id更新]执行SQL:{}",ReflectionUtil.setValueWithUpdateById(ps,instance,updateById));
-                effect = ps.executeUpdate();
             }else{
                 //执行insertIgnore
                 String insertIgnore = SQLUtil.insertIgnore(instance.getClass(),getSyntax(Syntax.InsertIgnore));
@@ -222,14 +226,16 @@ public abstract class AbstractDAO implements DAO {
             //根据每个实体类具体情况插入
             instanceList.stream().forEach((instance)->{
                 try {
-                    if (ReflectionUtil.hasUniqueKey(instance.getClass())) {
-                        //如果有唯一性约束则以唯一性约束更新
-                        logger.debug("[根据唯一性约束更新]执行SQL:{}",ReflectionUtil.setValueWithUpdateByUniqueKey(updateByUniqueKeyPs,instance,updateByUniqueKey));
-                        updateByUniqueKeyPs.addBatch();
-                    }else if(ReflectionUtil.hasId(instance)){
-                        //根据id更新
-                        logger.debug("[根据id更新]执行SQL:{}",ReflectionUtil.setValueWithUpdateById(updateByIdPs,instance,updateById));
-                        updateByIdPs.addBatch();
+                    if(ReflectionUtil.hasId(instance)){
+                        if (ReflectionUtil.hasUniqueKey(instance.getClass())) {
+                            //如果有唯一性约束则以唯一性约束更新
+                            logger.debug("[根据唯一性约束更新]执行SQL:{}",ReflectionUtil.setValueWithUpdateByUniqueKey(updateByUniqueKeyPs,instance,updateByUniqueKey));
+                            updateByUniqueKeyPs.addBatch();
+                        }else{
+                            //根据id更新
+                            logger.debug("[根据id更新]执行SQL:{}",ReflectionUtil.setValueWithUpdateById(updateByIdPs,instance,updateById));
+                            updateByIdPs.addBatch();
+                        }
                     }else{
                         //执行insertIgnore
                         logger.debug("[执行插入操作]执行SQL:{}",ReflectionUtil.setValueWithInsertIgnore(insertIgnorePs,instance,insertIgnore));
@@ -317,21 +323,23 @@ public abstract class AbstractDAO implements DAO {
         List<Class> classList = new ArrayList<>();
         if("file".equals(url.getProtocol())){
             File file = new File(url.getFile());
-            System.out.println(file.getAbsolutePath());
+            logger.info("[类文件路径]{}",file.getAbsolutePath());
             if(!file.isDirectory()){
                 throw new IllegalArgumentException("包名不是合法的文件夹!");
             }
-            String basePath = new File(classLoader.getResource("").getFile()).getAbsolutePath();
             Stack<File> stack = new Stack<>();
             stack.push(file);
+
+            String indexOfString = packageName.replace(".","\\");
             while(!stack.isEmpty()){
                 file = stack.pop();
                 for(File f:file.listFiles()){
                     if(f.isDirectory()){
                         stack.push(f);
                     }else if(f.isFile()&&f.getName().endsWith(".class")){
-                        String className = f.getAbsolutePath().replace(basePath,"").replace("\\",".");
-                        className = className.substring(1,className.length()-6);
+                        String path = f.getAbsolutePath();
+                        int startIndex = path.indexOf(indexOfString);
+                        String className = path.substring(startIndex,path.length()-6).replace("\\",".");
                         classList.add(Class.forName(className));
                     }
                 }
@@ -340,8 +348,6 @@ public abstract class AbstractDAO implements DAO {
             JarURLConnection jarURLConnection = (JarURLConnection) url.openConnection();
             if (null != jarURLConnection) {
                 JarFile jarFile = jarURLConnection.getJarFile();
-                System.out.println(jarFile);
-                System.out.println(JSON.toJSONString(jarFile));
                 if (null != jarFile) {
                     Enumeration<JarEntry> jarEntries = jarFile.entries();
                     while (jarEntries.hasMoreElements()) {
@@ -355,8 +361,6 @@ public abstract class AbstractDAO implements DAO {
                 }
             }
         }
-        System.out.println(classList);
-
         if (classList.size() == 0) {
             return new JSONArray();
         }
@@ -383,7 +387,9 @@ public abstract class AbstractDAO implements DAO {
             JSONArray properties = new JSONArray();
             for (int i = 0; i < fields.length; i++) {
                 JSONObject property = new JSONObject();
-                property.put("ignore", fields[i].getDeclaredAnnotation(Ignore.class) != null);
+                //Ignore注解或者成员属性为指定包下面的实体类均要忽略
+                boolean ignore = fields[i].getType().getName().contains(packageName)||fields[i].getDeclaredAnnotation(Ignore.class) != null;
+                property.put("ignore",ignore);
                 property.put("column", StringUtil.Camel2Underline(fields[i].getName()));
                 property.put("unique", fields[i].getDeclaredAnnotation(Unique.class) != null);
                 property.put("notNull", fields[i].getDeclaredAnnotation(NotNull.class) != null);
@@ -401,6 +407,7 @@ public abstract class AbstractDAO implements DAO {
                 properties.add(property);
             }
             entity.put("properties", properties);
+            entityList.add(entity);
         }
         return entityList;
     }
@@ -486,9 +493,9 @@ public abstract class AbstractDAO implements DAO {
         }
         try {
             JSONArray dbEntityList = getDatabaseInfo(dataSource.getConnection());
-//            logger.debug("[获取数据库信息]{}",dbEntityList.toJSONString());
+            logger.debug("[获取数据库信息]{}",dbEntityList.size());
             JSONArray entityList = getEntityInfo(packageName,predicate);
-//            logger.debug("[获取实体信息]{}",entityList.toJSONString());
+            logger.debug("[获取实体信息]{}",entityList.size());
             Connection connection = dataSource.getConnection();
             connection.setAutoCommit(false);
 
@@ -511,6 +518,9 @@ public abstract class AbstractDAO implements DAO {
                     JSONArray properties = source.getJSONArray("properties");
                     for(int j=0;j<properties.size();j++){
                         JSONObject property = properties.getJSONObject(j);
+                        if(property.getBoolean("ignore")){
+                            continue;
+                        }
                         String column = property.getString("column");
                         String columnType = property.containsKey("columnType")?property.getString("columnType"):fieldMapping.get(property.getString("type"));
                         if("id".equals(column)){
@@ -529,10 +539,9 @@ public abstract class AbstractDAO implements DAO {
                                 uniqueColumnList.add(column);
                             }
                         }
-                        if(j!=properties.size()-1){
-                            builder.append(",");
-                        }
+                        builder.append(",");
                     }
+                    builder.deleteCharAt(builder.length()-1);
                     builder.append(")");
                     String sql = builder.toString().replaceAll("\\s+"," ");
                     logger.debug("[生成新表{}=>{}]执行sql:{}",className,tableName,sql);
@@ -561,6 +570,9 @@ public abstract class AbstractDAO implements DAO {
     protected void addNewColumn(Connection connection, String tableName, List<String> uniqueColumnList, JSONArray sourceProperties, JSONArray targetProperties) throws SQLException {
         for (int j = 0; j < sourceProperties.size(); j++) {
             JSONObject sourceProperty = sourceProperties.getJSONObject(j);
+            if(sourceProperty.getBoolean("ignore")){
+                continue;
+            }
             JSONObject targetProperty = getValue(targetProperties, "column", sourceProperty.getString("column"));
             if (targetProperty == null) {
                 //新增属性
@@ -573,7 +585,8 @@ public abstract class AbstractDAO implements DAO {
                     builder.append(" default " + sourceProperty.getString("default"));
                 }
                 String sql = builder.toString().replaceAll("\\s+", " ");
-                logger.debug("[在表{}添加新列{}]({}) 执行sql:[{}],执行结果:{}",tableName,column,columnType,sql,connection.prepareStatement(sql).executeUpdate());
+                logger.debug("[添加新列]表:{},列名:{},执行SQL:{}",tableName,column+"("+columnType+")",sql);
+                connection.prepareStatement(sql).executeUpdate();
                 if (sourceProperty.getBoolean("unique")) {
                     uniqueColumnList.add(column);
                 }

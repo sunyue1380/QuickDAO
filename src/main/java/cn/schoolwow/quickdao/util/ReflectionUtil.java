@@ -19,6 +19,7 @@ import java.util.stream.Collectors;
 public class ReflectionUtil {
     private static JSONObject sqlCache = new JSONObject();
     private static Map<Class,Field[]> classFieldsCache = new HashMap<>();
+    public static String packageName = null;
 
     /**获取id属性*/
     public static Field getId(Class _class) throws NoSuchFieldException {
@@ -36,6 +37,8 @@ public class ReflectionUtil {
         if(!classFieldsCache.containsKey(_class)){
             Field[] fields = _class.getDeclaredFields();
             Field.setAccessible(fields,true);
+            List<Field> fieldList = Arrays.asList(fields).stream().filter(f->!f.getType().getName().contains(packageName)).collect(Collectors.toList());
+            fields = fieldList.toArray(new Field[fieldList.size()]);
             classFieldsCache.put(_class,fields);
         }
         return classFieldsCache.get(_class);

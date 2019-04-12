@@ -45,6 +45,7 @@ public interface Condition<T> {
     long delete();
     List<T> getList();
     /**获取复合列表(即返回关联表字段)*/
-    JSONArray getCompositList();
+    List<T> getCompositList();
+    JSONArray getCompositArray();
     List<T> getValueList(Class<T> _class, String column);
 }

@@ -4,6 +4,7 @@ import cn.schoolwow.quickdao.dao.AbstractDAO;
 import cn.schoolwow.quickdao.dao.DAO;
 import cn.schoolwow.quickdao.dao.MySQLDAO;
 import cn.schoolwow.quickdao.dao.SQLiteDAO;
+import cn.schoolwow.quickdao.util.ReflectionUtil;
 import cn.schoolwow.quickdao.util.ValidateUtil;
 import com.alibaba.fastjson.JSON;
 import org.slf4j.Logger;
@@ -64,6 +65,7 @@ public class QuickDAO {
         if(ValidateUtil.isNull(packageName)||ValidateUtil.isNull(dataSource)){
             throw new IllegalArgumentException("packageName和dataSource不能为空!");
         }
+        ReflectionUtil.packageName = packageName;
         AbstractDAO dao = null;
         try {
             Connection connection = dataSource.getConnection();
