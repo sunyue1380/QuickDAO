@@ -1,9 +1,6 @@
 package cn.schoolwow.quickdao;
 
-import cn.schoolwow.quickdao.dao.AbstractDAO;
-import cn.schoolwow.quickdao.dao.DAO;
-import cn.schoolwow.quickdao.dao.MySQLDAO;
-import cn.schoolwow.quickdao.dao.SQLiteDAO;
+import cn.schoolwow.quickdao.dao.*;
 import cn.schoolwow.quickdao.util.ReflectionUtil;
 import cn.schoolwow.quickdao.util.ValidateUtil;
 import com.alibaba.fastjson.JSON;
@@ -20,7 +17,7 @@ public class QuickDAO {
     Logger logger = LoggerFactory.getLogger(QuickDAO.class);
     private static HashMap<String,Class> driverMapping = new HashMap();
     static{
-        driverMapping.put("jdbc:h2",MySQLDAO.class);
+        driverMapping.put("jdbc:h2",H2DAO.class);
         driverMapping.put("jdbc:sqlite", SQLiteDAO.class);
         driverMapping.put("jdbc:mysql", MySQLDAO.class);
     }

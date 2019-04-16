@@ -174,6 +174,20 @@ public class ReflectionUtil {
                             field.setLong(instance, Long.valueOf(resultSet.getLong(columnName)));
                         }
                     };break;
+                    case "float":{
+                        if(field.getType().isPrimitive()){
+                            field.setFloat(instance,resultSet.getFloat(columnName));
+                        }else{
+                            field.setFloat(instance, Float.valueOf(resultSet.getFloat(columnName)));
+                        }
+                    };break;
+                    case "double":{
+                        if(field.getType().isPrimitive()){
+                            field.setDouble(instance,resultSet.getDouble(columnName));
+                        }else{
+                            field.setDouble(instance, Double.valueOf(resultSet.getDouble(columnName)));
+                        }
+                    };break;
                     case "boolean":{
                         if(field.getType().isPrimitive()){
                             field.setBoolean(instance,resultSet.getBoolean(columnName));

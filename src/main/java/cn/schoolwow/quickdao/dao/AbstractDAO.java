@@ -44,8 +44,8 @@ public abstract class AbstractDAO implements DAO {
         fieldMapping.put("int", "INTEGER");
         fieldMapping.put("integer", "INTEGER");
         fieldMapping.put("long", "BIGINT");
-        fieldMapping.put("float", "FLOAT");
-        fieldMapping.put("double", "DOUBLE");
+        fieldMapping.put("float", "FLOAT(4,2)");
+        fieldMapping.put("double", "DOUBLE(5,2)");
         fieldMapping.put("date", "DATETIME");
         fieldMapping.put("time", "TIME");
         fieldMapping.put("timestamp", "TIMESTAMP");
@@ -580,7 +580,7 @@ public abstract class AbstractDAO implements DAO {
                 String columnType = sourceProperty.containsKey("columnType") ? sourceProperty.getString("columnType") : fieldMapping.get(sourceProperty.getString("type"));
 
                 StringBuilder builder = new StringBuilder();
-                builder.append("alter table " + tableName + " add column " + "`" + column + "` " + columnType);
+                builder.append("alter table `" + tableName + "` add column " + "`" + column + "` " + columnType+";");
                 if (sourceProperty.containsKey("default")) {
                     builder.append(" default " + sourceProperty.getString("default"));
                 }

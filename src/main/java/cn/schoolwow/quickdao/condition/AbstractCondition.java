@@ -56,7 +56,6 @@ public class AbstractCondition<T> implements Condition<T>{
     protected String tableName = null;
     /**是否已经完成条件构建*/
     protected boolean hasDone = false;
-    private JSONArray entityList = new JSONArray();
 
     private static String[] patterns = new String[]{"%","_","[","[^","[!","]"};
 
@@ -134,7 +133,7 @@ public class AbstractCondition<T> implements Condition<T>{
     @Override
     public Condition addQuery(String property, String operator, Object value) {
         if(value instanceof String){
-            whereBuilder.append("(t.`"+property+"` "+operator+" ?) and ");
+            whereBuilder.append("(t.`"+StringUtil.Camel2Underline(property)+"` "+operator+" ?) and ");
             boolean hasContains = false;
             for(String pattern:patterns){
                 if(((String) value).contains(pattern)){
@@ -147,7 +146,7 @@ public class AbstractCondition<T> implements Condition<T>{
                 parameterList.add("%"+value+"%");
             }
         }else{
-            whereBuilder.append("(t.`"+property+"` "+operator+" ?) and ");
+            whereBuilder.append("(t.`"+StringUtil.Camel2Underline(property)+"` "+operator+" ?) and ");
             parameterList.add(value);
         }
         return this;
@@ -185,13 +184,13 @@ public class AbstractCondition<T> implements Condition<T>{
 
     @Override
     public Condition orderBy(String field) {
-        orderByBuilder.append("t.`"+field+"` asc,");
+        orderByBuilder.append("t.`"+StringUtil.Camel2Underline(field)+"` asc,");
         return this;
     }
 
     @Override
     public Condition orderByDesc(String field) {
-        orderByBuilder.append("t.`"+field+"` desc,");
+        orderByBuilder.append("t.`"+StringUtil.Camel2Underline(field)+"` desc,");
         return this;
     }
 
@@ -610,7 +609,7 @@ public class AbstractCondition<T> implements Condition<T>{
         @Override
         public SubCondition addQuery(String property, String operator, Object value) {
             if(value instanceof String){
-                whereBuilder.append("("+tableAliasName+".`"+property+"` "+operator+" ?) and ");
+                whereBuilder.append("("+tableAliasName+".`"+StringUtil.Camel2Underline(property)+"` "+operator+" ?) and ");
                 boolean hasContains = false;
                 for(String pattern:patterns){
                     if(((String) value).contains(pattern)){

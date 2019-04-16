@@ -34,6 +34,10 @@ public class PlayList {
   private String searchSource;
   /**上次解析时间*/
   private Date lastAnalyzeTime;
+  /**豆瓣评分*/
+  private float doubanRank;
+  /**豆瓣主页地址*/
+  private String doubanUrl;
   /**更新时间*/
   private Date updateTime;
 
@@ -131,6 +135,22 @@ public class PlayList {
 
   public void setLastAnalyzeTime(Date lastAnalyzeTime) {
     this.lastAnalyzeTime = lastAnalyzeTime;
+  }
+
+  public float getDoubanRank() {
+    return doubanRank;
+  }
+
+  public void setDoubanRank(float doubanRank) {
+    this.doubanRank = doubanRank;
+  }
+
+  public String getDoubanUrl() {
+    return doubanUrl;
+  }
+
+  public void setDoubanUrl(String doubanUrl) {
+    this.doubanUrl = doubanUrl;
   }
 
   public Date getUpdateTime() {
