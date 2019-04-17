@@ -1,5 +1,6 @@
 package cn.schoolwow.quickdao.condition;
 
+import cn.schoolwow.quickdao.domain.PageVo;
 import com.alibaba.fastjson.JSONArray;
 
 import java.util.List;
@@ -44,6 +45,7 @@ public interface Condition<T> {
     long update();
     long delete();
     List<T> getList();
+    PageVo<T> getPagingList();
     /**获取复合列表(即返回关联表字段)*/
     List<T> getCompositList();
     JSONArray getCompositArray();

@@ -1,6 +1,7 @@
 package cn.schoolwow.quickdao.condition;
 
 import cn.schoolwow.quickdao.annotation.Ignore;
+import cn.schoolwow.quickdao.domain.PageVo;
 import cn.schoolwow.quickdao.util.ReflectionUtil;
 import cn.schoolwow.quickdao.util.SQLUtil;
 import cn.schoolwow.quickdao.util.StringUtil;
@@ -56,6 +57,8 @@ public class AbstractCondition<T> implements Condition<T>{
     protected String tableName = null;
     /**是否已经完成条件构建*/
     protected boolean hasDone = false;
+
+    protected PageVo<T> pageVo = null;
 
     private static String[] patterns = new String[]{"%","_","[","[^","[!","]"};
 
@@ -203,6 +206,9 @@ public class AbstractCondition<T> implements Condition<T>{
     @Override
     public Condition page(int pageNum, int pageSize) {
         this.limit = "limit "+(pageNum-1)*pageSize+","+pageSize;
+        pageVo = new PageVo<>();
+        pageVo.setPageSize(pageSize);
+        pageVo.setCurrentPage(pageNum);
         return this;
     }
 
@@ -364,6 +370,19 @@ public class AbstractCondition<T> implements Condition<T>{
             e.printStackTrace();
             return null;
         }
+    }
+
+    @Override
+    public PageVo<T> getPagingList() {
+        if(pageVo==null){
+            throw new IllegalArgumentException("请先调用page()函数!");
+        }
+        List<T> list = getList();
+        pageVo.setList(list);
+        pageVo.setTotalSize(count());
+        pageVo.setTotalPage((int)(pageVo.getTotalSize()/pageVo.getPageSize())+1);
+        pageVo.setHasMore(pageVo.getCurrentPage()<pageVo.getTotalPage());
+        return pageVo;
     }
 
     @Override

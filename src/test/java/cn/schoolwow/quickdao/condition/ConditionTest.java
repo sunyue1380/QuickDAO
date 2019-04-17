@@ -2,6 +2,7 @@ package cn.schoolwow.quickdao.condition;
 
 import cn.schoolwow.quickdao.dao.DAO;
 import cn.schoolwow.quickdao.dao.DAOTest;
+import cn.schoolwow.quickdao.domain.PageVo;
 import cn.schoolwow.quickdao.entity.logic.PlayHistory;
 import cn.schoolwow.quickdao.entity.logic.PlayList;
 import cn.schoolwow.quickdao.entity.logic.Video;
@@ -36,6 +37,20 @@ public class ConditionTest extends DAOTest{
                 .getList();
         logger.info("[测试查询功能]查询结果:{}", JSON.toJSONString(userList));
         Assert.assertTrue(userList.size()==2);
+    }
+
+    @Test
+    public void testPagingListQuery() throws Exception {
+        PageVo<User> pagingList = dao.query(User.class)
+                .addQuery("username","@")
+                .addQuery("type",">=",1)
+                .addInQuery("token",new String[]{"7a746f17a9bf4903b09b617135152c71","9204d99472c04ce7abf1bcb9773b0d49"})
+                .addNotNullQuery("lastLogin")
+                .orderByDesc("id")
+                .page(1,10)
+                .getPagingList();
+        logger.info("[测试查询功能]查询结果:{}", JSON.toJSONString(pagingList));
+        Assert.assertTrue(pagingList.getList().size()==2);
     }
 
     @Test
