@@ -53,11 +53,12 @@ public abstract class AbstractDAO implements DAO {
 
     protected enum Syntax{
         AutoIncrement,
-        InsertIgnore;
+        InsertIgnore,
+        Comment;
     }
 
     /**提取各个数据库产品的SQL差异部分的语法*/
-    protected abstract String getSyntax(Syntax syntax);
+    protected abstract String getSyntax(Syntax syntax,Object... values);
 
     /**获取唯一约束SQL语句*/
     protected abstract String getUniqueStatement(String tableName,List<String> columns);
@@ -330,16 +331,16 @@ public abstract class AbstractDAO implements DAO {
             Stack<File> stack = new Stack<>();
             stack.push(file);
 
-            String indexOfString = packageName.replace(".","\\");
+            String indexOfString = packageName.replace(".","/");
             while(!stack.isEmpty()){
                 file = stack.pop();
                 for(File f:file.listFiles()){
                     if(f.isDirectory()){
                         stack.push(f);
                     }else if(f.isFile()&&f.getName().endsWith(".class")){
-                        String path = f.getAbsolutePath();
+                        String path = f.getAbsolutePath().replace("\\","/");
                         int startIndex = path.indexOf(indexOfString);
-                        String className = path.substring(startIndex,path.length()-6).replace("\\",".");
+                        String className = path.substring(startIndex,path.length()-6).replace("/",".");
                         classList.add(Class.forName(className));
                     }
                 }
@@ -402,6 +403,10 @@ public abstract class AbstractDAO implements DAO {
                 }
                 if (fields[i].getDeclaredAnnotation(DefaultValue.class) != null) {
                     property.put("default", fields[i].getDeclaredAnnotation(DefaultValue.class).value());
+                }
+                property.put("comment","");
+                if(fields[i].getDeclaredAnnotation(Comment.class)!=null){
+                    property.put("comment",fields[i].getDeclaredAnnotation(Comment.class).value());
                 }
                 property.put("type", fields[i].getType().getSimpleName().toLowerCase());
                 properties.add(property);
@@ -534,6 +539,7 @@ public abstract class AbstractDAO implements DAO {
                             if(property.getBoolean("notNull")){
                                 builder.append(" not null ");
                             }
+                            builder.append(" "+getSyntax(Syntax.Comment,property.getString("comment")));
 
                             if(property.getBoolean("unique")){
                                 uniqueColumnList.add(column);
@@ -580,10 +586,11 @@ public abstract class AbstractDAO implements DAO {
                 String columnType = sourceProperty.containsKey("columnType") ? sourceProperty.getString("columnType") : fieldMapping.get(sourceProperty.getString("type"));
 
                 StringBuilder builder = new StringBuilder();
-                builder.append("alter table `" + tableName + "` add column " + "`" + column + "` " + columnType+";");
+                builder.append("alter table `" + tableName + "` add column " + "`" + column + "` " + columnType+" ");
                 if (sourceProperty.containsKey("default")) {
                     builder.append(" default " + sourceProperty.getString("default"));
                 }
+                builder.append(" "+getSyntax(Syntax.Comment,sourceProperty.getString("comment"))+";");
                 String sql = builder.toString().replaceAll("\\s+", " ");
                 logger.debug("[添加新列]表:{},列名:{},执行SQL:{}",tableName,column+"("+columnType+")",sql);
                 connection.prepareStatement(sql).executeUpdate();

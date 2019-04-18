@@ -16,7 +16,7 @@ public class SQLiteDAO extends AbstractDAO{
         fieldMapping.put("long","INTEGER");
     }
 
-    protected String getSyntax(Syntax syntax){
+    protected String getSyntax(Syntax syntax,Object... values){
         switch(syntax){
             case AutoIncrement:{
                 return "autoincrement";
@@ -24,7 +24,10 @@ public class SQLiteDAO extends AbstractDAO{
             case InsertIgnore:{
                 return "insert or ignore into ";
             }
-            default:return null;
+            case Comment:{
+                return "/*"+values[0]+"*/";
+            }
+            default:return "";
         }
     }
 

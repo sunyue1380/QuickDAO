@@ -1,5 +1,6 @@
 package cn.schoolwow.quickdao.entity.user;
 
+import cn.schoolwow.quickdao.annotation.Comment;
 import cn.schoolwow.quickdao.annotation.Ignore;
 import cn.schoolwow.quickdao.annotation.Unique;
 
@@ -14,14 +15,17 @@ public class User {
      * 用户
      */
     @Unique
+    @Comment("用户名")
     private String username;
     /**
      * 密码
      */
+    @Comment("密码")
     private String password;
     /**
      * 上次登录
      */
+    @Comment("上次登录")
     private Date lastLogin;
     /**
      * 类型 (0-普通用户,1-管理员)

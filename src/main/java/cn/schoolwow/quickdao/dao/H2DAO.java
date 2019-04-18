@@ -12,7 +12,7 @@ public class H2DAO extends MySQLDAO{
     }
 
     @Override
-    protected String getSyntax(Syntax syntax) {
+    protected String getSyntax(Syntax syntax,Object... values) {
         switch(syntax){
             case AutoIncrement:{
                 return "auto_increment";
@@ -20,22 +20,7 @@ public class H2DAO extends MySQLDAO{
             case InsertIgnore:{
                 return "insert ignore into ";
             }
-            default:return null;
+            default:return "";
         }
-    }
-
-    @Override
-    protected String getUniqueStatement(String tableName, List<String> columns) {
-        StringBuilder uniqueSQLBuilder = new StringBuilder("alter table `"+tableName+"` add unique index `"+tableName+"_");
-        columns.stream().forEach((column)->{
-            uniqueSQLBuilder.append(column+"_");
-        });
-        uniqueSQLBuilder.append("unique_index` (");
-        columns.stream().forEach((column)->{
-            uniqueSQLBuilder.append("`"+column+"`,");
-        });
-        uniqueSQLBuilder.deleteCharAt(uniqueSQLBuilder.length()-1);
-        uniqueSQLBuilder.append(");");
-        return uniqueSQLBuilder.toString();
     }
 }

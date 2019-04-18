@@ -10,7 +10,7 @@ public class MySQLDAO extends AbstractDAO{
     }
 
     @Override
-    protected String getSyntax(Syntax syntax) {
+    protected String getSyntax(Syntax syntax,Object... values) {
         switch(syntax){
             case AutoIncrement:{
                 return "auto_increment";
@@ -18,7 +18,10 @@ public class MySQLDAO extends AbstractDAO{
             case InsertIgnore:{
                 return "insert ignore into ";
             }
-            default:return null;
+            case Comment:{
+                return "comment \""+values[0]+"\"";
+            }
+            default:return "";
         }
     }
 
