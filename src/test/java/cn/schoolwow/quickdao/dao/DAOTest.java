@@ -217,4 +217,34 @@ public class DAOTest {
         logger.info("[清空User表]影响:{}",dao.clear(User.class));
     }
 
+    @Test
+    public void testTransaction() throws Exception {
+        //用户订阅播单,播单订阅数加1,同时插入一条用户播单订阅记录
+        dao.startTransaction();
+        UserPlayList userPlayList = new UserPlayList();
+        userPlayList.setUserId(1);
+        userPlayList.setPlaylistId(1);
+        logger.info("[插入用户播单订阅记录]实体:{},影响:{}",JSON.toJSONString(userPlayList),dao.save(userPlayList));
+        //更新用户播单订阅数
+        PlayList playList = dao.fetch(PlayList.class,1);
+        playList.setSubscribeCount(playList.getSubscribeCount()+1);
+        logger.info("[更新播单订阅数]实体:{},影响:{}",JSON.toJSONString(playList),dao.save(playList));
+        dao.commit();
+        dao.endTransaction();
+        long count = dao.query(UserPlayList.class).addQuery("userId",1).addQuery("playlistId",1).count();
+        logger.info("[检查用户播单订阅记录]count:{}",count);
+        Assert.assertTrue(count==1);
+
+        //开启事务插入一条订阅记录后回滚
+        dao.startTransaction();
+        userPlayList = new UserPlayList();
+        userPlayList.setUserId(2);
+        userPlayList.setPlaylistId(1);
+        logger.info("[插入用户播单订阅记录]实体:{},影响:{}",JSON.toJSONString(userPlayList),dao.save(userPlayList));
+        dao.rollback();
+        dao.endTransaction();
+        count = dao.query(UserPlayList.class).addQuery("userId",2).addQuery("playlistId",1).count();
+        logger.info("[检查用户播单订阅记录]count:{}",count);
+        Assert.assertTrue(count==0);
+    }
 }

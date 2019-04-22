@@ -93,25 +93,27 @@ public class AbstractCondition<T> implements Condition<T>{
         if(values==null||values.length==0){
             return this;
         }
-        if(values[0] instanceof String){
-            for(int i=0;i<values.length;i++){
-                //不能加百分号
-                values[i] = values[i].toString();
-            }
-        }
-        parameterList.addAll(Arrays.asList(values));
-        whereBuilder.append("(t."+StringUtil.Camel2Underline(field)+" in (");
-        for(int i=0;i<values.length;i++){
-            whereBuilder.append("?,");
-        }
-        whereBuilder.deleteCharAt(whereBuilder.length()-1);
-        whereBuilder.append(") ) and ");
+        addNotInQuery(field,values,"in");
         return this;
     }
 
     @Override
     public Condition addInQuery(String field, List values) {
         return addInQuery(field,values.toArray(new Object[values.size()]));
+    }
+
+    @Override
+    public Condition addNotInQuery(String field, Object[] values) {
+        if(values==null||values.length==0){
+            return this;
+        }
+        addNotInQuery(field,values,"not in");
+        return this;
+    }
+
+    @Override
+    public Condition addNotInQuery(String field, List values) {
+        return addNotInQuery(field,values.toArray(new Object[values.size()]));
     }
 
     @Override
@@ -555,6 +557,22 @@ public class AbstractCondition<T> implements Condition<T>{
         if(!hasDone){
             done();
         }
+    }
+
+    private void addNotInQuery(String field,Object[] values,String in){
+        if(values[0] instanceof String){
+            for(int i=0;i<values.length;i++){
+                //不能加百分号
+                values[i] = values[i].toString();
+            }
+        }
+        parameterList.addAll(Arrays.asList(values));
+        whereBuilder.append("(t."+StringUtil.Camel2Underline(field)+" "+in+" (");
+        for(int i=0;i<values.length;i++){
+            whereBuilder.append("?,");
+        }
+        whereBuilder.deleteCharAt(whereBuilder.length()-1);
+        whereBuilder.append(") ) and ");
     }
 
     class AbstractSubCondition<T> implements SubCondition<T> {

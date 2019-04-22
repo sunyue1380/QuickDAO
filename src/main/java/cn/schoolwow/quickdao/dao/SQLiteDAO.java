@@ -33,7 +33,7 @@ public class SQLiteDAO extends AbstractDAO{
 
     @Override
     protected String getUniqueStatement(String tableName, List<String> columns) {
-        StringBuilder uniqueSQLBuilder = new StringBuilder("create index `"+tableName+"_");
+        StringBuilder uniqueSQLBuilder = new StringBuilder("create unique index `"+tableName+"_");
         columns.stream().forEach((column)->{
             uniqueSQLBuilder.append(column+"_");
         });

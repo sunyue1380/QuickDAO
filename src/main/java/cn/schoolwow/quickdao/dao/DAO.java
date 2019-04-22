@@ -2,6 +2,7 @@ package cn.schoolwow.quickdao.dao;
 
 import cn.schoolwow.quickdao.condition.Condition;
 
+import java.sql.Savepoint;
 import java.util.List;
 
 public interface DAO {
@@ -34,4 +35,22 @@ public interface DAO {
 
     /**清空表*/
     long clear(Class _class);
+
+    /**开启事务*/
+    void startTransaction();
+
+    /**设置保存点*/
+    Savepoint setSavePoint(String name);
+
+    /**事务回滚*/
+    void rollback();
+
+    /**事务回滚*/
+    void rollback(Savepoint savePoint);
+
+    /**事务提交*/
+    void commit();
+
+    /**结束事务*/
+    void endTransaction();
 }

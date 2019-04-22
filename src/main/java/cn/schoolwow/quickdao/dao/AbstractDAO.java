@@ -17,10 +17,7 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.net.JarURLConnection;
 import java.net.URL;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.*;
 import java.util.function.Predicate;
 import java.util.jar.JarEntry;
@@ -34,6 +31,8 @@ public abstract class AbstractDAO implements DAO {
     /**字段映射*/
     protected Map<String, String> fieldMapping = new HashMap<String, String>();
     private DataSource dataSource;
+    private Connection connection;
+    private boolean startTranscation = false;
 
     public AbstractDAO(DataSource dataSource) {
         this.dataSource = dataSource;
@@ -147,7 +146,7 @@ public abstract class AbstractDAO implements DAO {
             return 0;
         }
         try {
-            Connection connection = dataSource.getConnection();
+            Connection connection = getConnection();
             Class _class = instance.getClass();
             PreparedStatement ps = null;
             long effect = 0;
@@ -195,7 +194,9 @@ public abstract class AbstractDAO implements DAO {
                 }
             }
             ps.close();
-            connection.close();
+            if(!startTranscation){
+                connection.close();
+            }
             return effect;
         }catch (Exception e){
             e.printStackTrace();
@@ -209,9 +210,8 @@ public abstract class AbstractDAO implements DAO {
             return 0;
         }
         try {
-            Connection connection = dataSource.getConnection();
+            Connection connection = getConnection();
             connection.setAutoCommit(false);
-
             String updateByUniqueKey = SQLUtil.updateByUniqueKey(instanceList.get(0).getClass());
             PreparedStatement _updateByUniqueKeyPs = null;
             if (ReflectionUtil.hasUniqueKey(instanceList.get(0).getClass())) {
@@ -261,9 +261,10 @@ public abstract class AbstractDAO implements DAO {
                 }
                 preparedStatements[i].close();
             }
-            connection.commit();
-            connection.setAutoCommit(true);
-            connection.close();
+            if(!startTranscation){
+                connection.commit();
+                connection.close();
+            }
             return effect;
         } catch (SQLException ex) {
             ex.printStackTrace();
@@ -284,14 +285,16 @@ public abstract class AbstractDAO implements DAO {
     @Override
     public long delete(Class _class, String property, Object value){
         try {
-            Connection connection = dataSource.getConnection();
+            Connection connection = getConnection();
             String deleteSQL = SQLUtil.delete(_class, property);
             PreparedStatement ps = connection.prepareStatement(deleteSQL);
             ps.setObject(1, value);
             logger.debug("[根据属性{}=>{}删除]执行SQL:{}",property,value,deleteSQL.replace("?",value.toString()));
             long effect = ps.executeUpdate();
             ps.close();
-            connection.close();
+            if(!startTranscation){
+                connection.close();
+            }
             return effect;
         }catch (Exception e){
             e.printStackTrace();
@@ -302,17 +305,104 @@ public abstract class AbstractDAO implements DAO {
     @Override
     public long clear(Class _class){
         try {
-            Connection connection = dataSource.getConnection();
+            Connection connection = getConnection();
             String sql = "delete from `" + SQLUtil.classTableMap.get(_class)+"`";
             logger.debug("[删除{}表]执行SQL:{}", _class.getSimpleName(),sql);
             PreparedStatement ps = connection.prepareStatement(sql);
             long effect = ps.executeUpdate();
             ps.close();
-            connection.close();
+            if(!startTranscation){
+                connection.close();
+            }
             return effect;
         }catch (Exception e){
             e.printStackTrace();
             return -1;
+        }
+    }
+
+    /**开启事务*/
+    public void startTransaction(){
+        startTranscation = true;
+    }
+
+    /**设置保存点*/
+    public Savepoint setSavePoint(String name){
+        if(connection==null){
+            return null;
+        }
+        try {
+            return connection.setSavepoint(name);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    /**事务回滚*/
+    public void rollback(){
+        if(connection==null){
+            return;
+        }
+        try {
+            connection.rollback();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**事务回滚*/
+    public void rollback(Savepoint savePoint){
+        if(connection==null){
+            return;
+        }
+        try {
+            connection.rollback(savePoint);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**事务提交*/
+    public void commit(){
+        if(connection==null){
+            return;
+        }
+        try {
+            connection.commit();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**结束事务*/
+    public void endTransaction(){
+        startTranscation = false;
+        if(connection==null){
+            logger.warn("数据库事务连接为空!不做任何操作!");
+            return;
+        }
+        try {
+            connection.close();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }finally {
+            connection = null;
+        }
+    }
+
+    private Connection getConnection() throws SQLException {
+        //开启事务时使用同一Connection,不开启事务时从线程池中获取
+        if(startTranscation){
+            synchronized (this){
+                if(connection==null){
+                    connection = dataSource.getConnection();
+                    connection.setAutoCommit(false);
+                }
+            }
+            return connection;
+        }else{
+            return dataSource.getConnection();
         }
     }
 

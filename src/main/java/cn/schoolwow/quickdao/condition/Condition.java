@@ -16,6 +16,10 @@ public interface Condition<T> {
     Condition addInQuery(String field, Object[] values);
     /**添加范围语句*/
     Condition addInQuery(String field, List values);
+    /**添加范围语句*/
+    Condition addNotInQuery(String field, Object[] values);
+    /**添加范围语句*/
+    Condition addNotInQuery(String field, List values);
     /**添加自定义查询条件*/
     Condition addQuery(String query);
     /**添加属性查询*/

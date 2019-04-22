@@ -1,6 +1,5 @@
 package cn.schoolwow.quickdao.entity.user;
 
-import cn.schoolwow.quickdao.annotation.DefaultValue;
 import cn.schoolwow.quickdao.annotation.Unique;
 
 public class UserPlayList {
@@ -8,11 +7,9 @@ public class UserPlayList {
     private long id;
     /** 用户id */
     @Unique
-    @DefaultValue("0")
     private long userId;
     /** 播单id */
     @Unique
-    @DefaultValue("0")
     private long playlistId;
 
     public long getId() {

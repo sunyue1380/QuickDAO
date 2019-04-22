@@ -30,13 +30,13 @@ public class ConditionTest extends DAOTest{
         List<User> userList = dao.query(User.class)
                 .addQuery("username","@")
                 .addQuery("type",">=",1)
-                .addInQuery("token",new String[]{"7a746f17a9bf4903b09b617135152c71","9204d99472c04ce7abf1bcb9773b0d49"})
+                .addNotInQuery("token",new String[]{"7a746f17a9bf4903b09b617135152c71","9204d99472c04ce7abf1bcb9773b0d49"})
                 .addNotNullQuery("lastLogin")
                 .orderByDesc("id")
                 .page(1,10)
                 .getList();
         logger.info("[测试查询功能]查询结果:{}", JSON.toJSONString(userList));
-        Assert.assertTrue(userList.size()==2);
+        Assert.assertTrue(userList.size()==0);
     }
 
     @Test
@@ -54,7 +54,7 @@ public class ConditionTest extends DAOTest{
     }
 
     @Test
-    public void testgetValueList() throws Exception {
+    public void testGetValueList() throws Exception {
         List<Long> userIds = dao.query(User.class)
                 .addQuery("username","@")
                 .addQuery("type",">=",1)
