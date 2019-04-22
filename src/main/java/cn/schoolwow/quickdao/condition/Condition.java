@@ -28,8 +28,17 @@ public interface Condition<T> {
     Condition addQuery(String property, String operator, Object value);
     /**添加更新字段*/
     Condition addUpdate(String property, Object value);
-//    Condition groupBy(String field);
-//    Condition having(String query);
+    /**添加聚合字段
+     * @param aggerate COUNT,SUM,MAX,MIN,AVG
+     * @param field 字段名
+     * */
+    Condition addAggerate(String aggerate,String field);
+    /**添加聚合字段*/
+    Condition addAggerate(String aggerate,String field,String alias);
+    /**分组*/
+    Condition groupBy(String field);
+    /**分组过滤*/
+    Condition having(String query);
     /**关联表*/
     <T> SubCondition<T> joinTable(Class<T> _class, String primaryField, String joinTableField);
 
@@ -54,4 +63,6 @@ public interface Condition<T> {
     List<T> getCompositList();
     JSONArray getCompositArray();
     List<T> getValueList(Class<T> _class, String column);
+
+    JSONArray getAggerateList();
 }

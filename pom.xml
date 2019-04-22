@@ -181,6 +181,9 @@
               </goals>
             </execution>
           </executions>
+          <configuration>
+            <passphrase>aa1122335</passphrase>
+          </configuration>
         </plugin>
       </plugins>
     </build>

@@ -40,6 +40,16 @@ public class ConditionTest extends DAOTest{
     }
 
     @Test
+    public void testAggerateQuery() throws Exception {
+        JSONArray array = dao.query(PlayList.class)
+                .addAggerate("COUNT","id")
+                .addColumn("tv")
+                .groupBy("tv")
+                .getAggerateList();
+        logger.info("[测试查询功能]查询结果:{}",array.toJSONString());
+    }
+
+    @Test
     public void testPagingListQuery() throws Exception {
         PageVo<User> pagingList = dao.query(User.class)
                 .addQuery("username","@")

@@ -12,10 +12,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.sql.DataSource;
 import java.lang.reflect.Field;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -23,7 +20,11 @@ import java.util.List;
 
 public class AbstractCondition<T> implements Condition<T>{
     Logger logger = LoggerFactory.getLogger(AbstractCondition.class);
+    /**列名*/
     protected StringBuilder columnBuilder = new StringBuilder();
+    /**聚合函数*/
+    protected StringBuilder aggerateColumnBuilder = new StringBuilder();
+    /**字段更新*/
     protected StringBuilder setBuilder = new StringBuilder();
     /**查询条件构建*/
     protected StringBuilder whereBuilder = new StringBuilder();
@@ -167,17 +168,29 @@ public class AbstractCondition<T> implements Condition<T>{
         return this;
     }
 
-//    @Override
-//    public Condition groupBy(String field) {
-//        groupByBuilder.append("t.`"+StringUtil.Camel2Underline(field)+"`,");
-//        return this;
-//    }
-//
-//    @Override
-//    public Condition having(String query) {
-//        havingBuilder.append("("+query+") and ");
-//        return this;
-//    }
+    @Override
+    public Condition addAggerate(String aggerate, String field) {
+        aggerateColumnBuilder.append(aggerate+"(t.`"+field+"`) as `"+aggerate+"("+field+")`,");
+        return this;
+    }
+
+    @Override
+    public Condition addAggerate(String aggerate, String field,String alias) {
+        aggerateColumnBuilder.append(aggerate+"(t.`"+field+"`) as `"+alias+"`,");
+        return this;
+    }
+
+    @Override
+    public Condition groupBy(String field) {
+        groupByBuilder.append("t.`"+StringUtil.Camel2Underline(field)+"`,");
+        return this;
+    }
+
+    @Override
+    public Condition having(String query) {
+        havingBuilder.append("("+query+") and ");
+        return this;
+    }
 
     @Override
     public <T> SubCondition<T> joinTable(Class<T> _class, String primaryField, String joinTableField) {
@@ -223,6 +236,9 @@ public class AbstractCondition<T> implements Condition<T>{
     protected Condition done() {
         if (columnBuilder.length() > 0) {
             columnBuilder.deleteCharAt(columnBuilder.length() - 1);
+        }
+        if (aggerateColumnBuilder.length() > 0) {
+            aggerateColumnBuilder.deleteCharAt(aggerateColumnBuilder.length() - 1);
         }
         if(setBuilder.length()>0){
             setBuilder.deleteCharAt(setBuilder.length() - 1);
@@ -352,7 +368,7 @@ public class AbstractCondition<T> implements Condition<T>{
         sqlBuilder.setLength(0);
         sqlBuilder.append("select "+SQLUtil.columns(_class,"t")+" from "+tableName+" as t ");
         addJoinTableStatement();
-        sqlBuilder.append(groupByBuilder.toString()+" "+havingBuilder.toString()+" "+orderByBuilder.toString()+" "+limit);
+        sqlBuilder.append(" "+orderByBuilder.toString()+" "+limit);
         sql = sqlBuilder.toString().replaceAll("\\s+"," ");
 
         try (Connection connection = dataSource.getConnection();
@@ -403,7 +419,7 @@ public class AbstractCondition<T> implements Condition<T>{
         }
         sqlBuilder.append(" from "+tableName+" as t ");
         addJoinTableStatement();
-        sqlBuilder.append(groupByBuilder.toString()+" "+havingBuilder.toString()+" "+orderByBuilder.toString()+" "+limit);
+        sqlBuilder.append(" "+orderByBuilder.toString()+" "+limit);
         sql = sqlBuilder.toString().replaceAll("\\s+"," ");
 
         try (Connection connection = dataSource.getConnection();
@@ -486,7 +502,7 @@ public class AbstractCondition<T> implements Condition<T>{
         sqlBuilder.setLength(0);
         sqlBuilder.append("select "+(columnBuilder.length()>0?columnBuilder.toString():"t.`"+column+"`")+" from "+tableName+" as t ");
         addJoinTableStatement();
-        sqlBuilder.append(groupByBuilder.toString()+" "+havingBuilder.toString()+" "+orderByBuilder.toString()+" "+limit);
+        sqlBuilder.append(" "+ orderByBuilder.toString()+" "+limit);
         sql = sqlBuilder.toString().replaceAll("\\s+"," ");
 
         try (Connection connection = dataSource.getConnection();
@@ -503,6 +519,44 @@ public class AbstractCondition<T> implements Condition<T>{
             ps.close();
             return instanceList;
         } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    @Override
+    public JSONArray getAggerateList() {
+        assureDone();
+        sqlBuilder.setLength(0);
+        sqlBuilder.append("select "+columnBuilder.toString()+" ,"+aggerateColumnBuilder.toString()+" from "+tableName+" as t ");
+        addJoinTableStatement();
+        sqlBuilder.append(groupByBuilder.toString()+" "+havingBuilder.toString()+" "+orderByBuilder.toString()+" "+limit);
+        sql = sqlBuilder.toString().replaceAll("\\s+"," ");
+
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sql);){
+            for(int i=0;i<parameterList.size();i++){
+                ps.setObject((i+1),parameterList.get(i));
+                replaceParameter(parameterList.get(i));
+            }
+            addJoinTableParamters(ps);
+            logger.debug("[getList]执行SQL:{}",sql);
+            JSONArray array = new JSONArray();
+            ResultSet resultSet = ps.executeQuery();
+            ResultSetMetaData metaData = resultSet.getMetaData();
+            int columnCount = metaData.getColumnCount();
+            while(resultSet.next()){
+                JSONObject o = new JSONObject();
+                for(int i=1;i<=columnCount;i++){
+                    o.put(metaData.getColumnName(i),resultSet.getString(i));
+                }
+                array.add(o);
+            }
+            resultSet.close();
+            ps.close();
+            connection.close();
+            return array;
+        } catch (SQLException e) {
             e.printStackTrace();
             return null;
         }
