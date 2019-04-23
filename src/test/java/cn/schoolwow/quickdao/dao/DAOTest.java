@@ -133,8 +133,13 @@ public class DAOTest {
     @Test
     public void fetch() throws Exception {
         User user = dao.fetch(User.class,1l);
-        logger.debug("[获取用户id为1的记录]:{}", JSON.toJSONString(dao.fetch(User.class,1)));
+        logger.debug("[获取用户id为1的记录]:{}", JSON.toJSONString(user));
         Assert.assertNotNull(user);
+
+        //fetchNull
+        user = dao.fetch(User.class,3);
+        logger.debug("[获取用户id为3的记录]:{}", JSON.toJSONString(user));
+        Assert.assertNull(user);
     }
 
     @Test
@@ -149,16 +154,22 @@ public class DAOTest {
         List<User> userList = dao.fetchList(User.class,"password","123456789");
         logger.debug("[获取用户密码为为123456789的记录]:{}",userList);
         Assert.assertTrue(userList!=null&&userList.size()==2);
+        userList = dao.fetchList(User.class,"lastLogin",null);
+        logger.debug("[获取lastLogin为null的记录]:{}",userList);
+        Assert.assertTrue(userList!=null&&userList.size()==0);
     }
 
     @Test
     public void save() throws Exception {
+        Object o = null;
+        Assert.assertTrue("保存空对象应该返回0",dao.save(o)==0);
+
         //根据UniqueKey更新
         User user = dao.fetch(User.class,1);
         user.setPassword("123456");
         long effect = dao.save(user);
         logger.debug("[把用户名为sunyue@schoolwow.cn的密码改为123456]:{}",effect);
-        Assert.assertTrue(user.getId()==1);
+//        Assert.assertTrue(user.getId()==1);
 
         //根据id更新
         Comment comment = dao.fetch(Comment.class,1);

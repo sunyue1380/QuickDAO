@@ -21,4 +21,26 @@ public class StringUtil {
         }
         return sb.toString();
     }
+
+    /**下划线命名转驼峰命名*/
+    public static String Underline2Camel(String s){
+        StringBuilder sb = new StringBuilder();
+        //以下划线分割
+        for(int i=0;i<s.length();i++){
+            if(s.charAt(i)=='_'){
+                continue;
+            }
+            if(i>0&&s.charAt(i-1)=='_'){
+                //如果当前是小写字母则转大写
+                if(s.charAt(i)>=97&&s.charAt(i)<=122){
+                    sb.append((char)(s.charAt(i)-32));
+                }else{
+                    sb.append(s.charAt(i));
+                }
+            }else{
+                sb.append(s.charAt(i));
+            }
+        }
+        return sb.toString();
+    }
 }

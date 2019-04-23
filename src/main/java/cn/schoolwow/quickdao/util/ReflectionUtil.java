@@ -4,6 +4,8 @@ import cn.schoolwow.quickdao.annotation.*;
 import cn.schoolwow.quickdao.condition.AbstractCondition;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+import com.alibaba.fastjson.serializer.SerializeConfig;
+import com.alibaba.fastjson.support.config.FastJsonConfig;
 
 import java.io.File;
 import java.io.IOException;
@@ -11,6 +13,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.*;
 import java.util.function.Predicate;
@@ -19,6 +22,7 @@ import java.util.stream.Collectors;
 public class ReflectionUtil {
     private static JSONObject sqlCache = new JSONObject();
     private static Map<Class,Field[]> classFieldsCache = new HashMap<>();
+    private static Map<String,Field> compositFieldCache = new HashMap<>();
     public static String packageName = null;
 
     /**获取id属性*/
@@ -37,12 +41,22 @@ public class ReflectionUtil {
         if(!classFieldsCache.containsKey(_class)){
             Field[] fields = _class.getDeclaredFields();
             Field.setAccessible(fields,true);
+            for(Field field:fields){
+                if(field.getType().getName().contains(packageName)){
+                    compositFieldCache.put(_class.getName()+"_"+field.getType().getName(),field);
+                }
+            }
             List<Field> fieldList = Arrays.asList(fields).stream().filter(f->!f.getType().getName().contains(packageName)).collect(Collectors.toList());
             fields = fieldList.toArray(new Field[fieldList.size()]);
             classFieldsCache.put(_class,fields);
         }
         return classFieldsCache.get(_class);
+   }
+
+    public static Field getCompositField(Class _class,Class fieldType){
+        return compositFieldCache.get(_class.getName()+"_"+fieldType.getName());
     }
+
     /**该类是否有唯一性约束*/
     public static boolean hasUniqueKey(Class _class){
         String key = "hasUniqueKey_"+_class.getName();
@@ -141,78 +155,37 @@ public class ReflectionUtil {
      * 将ResultSet映射到List中
      * @return 结果集的映射
      * */
-    public static <T> void mappingResultToList(ResultSet resultSet,List<T> instanceList,Class<T> _class,String column) throws SQLException, IllegalAccessException, InstantiationException, NoSuchMethodException, InvocationTargetException {
+    public static <T> List<T> mappingSingleResultToList(ResultSet resultSet,int count,Class<T> _class) throws SQLException, IllegalAccessException, InstantiationException, NoSuchMethodException, InvocationTargetException {
+        JSONArray array = new JSONArray(count);
         while(resultSet.next()){
-            T instance = _class.getConstructor(String.class).newInstance(resultSet.getString(column));
-            instanceList.add(instance);
+            array.add(resultSet.getString(1));
         }
         resultSet.close();
+        return array.toJavaList(_class);
     }
 
     /**
      * 将ResultSet映射到List中
      * @return 结果集的映射
      * */
-    public static <T> List<T> mappingResultToList(ResultSet resultSet,List<T> instanceList,Class<T> _class) throws SQLException, IllegalAccessException, InstantiationException {
+    public static <T> List<T> mappingResultSetToList(ResultSet resultSet,int count,Class<T> _class) throws SQLException {
+        JSONArray array = mappingResultSetToJSONArray(resultSet,"t",count);
+        return array.toJavaList(_class);
+    }
+
+    private static JSONArray mappingResultSetToJSONArray(ResultSet resultSet,String tableNameAlias,int count) throws SQLException {
+        ResultSetMetaData metaData = resultSet.getMetaData();
+        int columnCount = metaData.getColumnCount();
+        JSONArray array = new JSONArray(count);
         while(resultSet.next()){
-            T instance = _class.newInstance();
-            Field[] fields = getFields(_class);
-            for(Field field:fields){
-                if(field.getAnnotation(Ignore.class)!=null){
-                    continue;
-                }
-                String columnName = "t_"+StringUtil.Camel2Underline(field.getName());
-                String type = field.getType().getSimpleName().toLowerCase();
-                //根据类型进行映射
-                switch(type){
-                    case "int":{field.setInt(instance, resultSet.getInt(columnName));}break;
-                    case "integer":{field.setInt(instance, Integer.valueOf(resultSet.getInt(columnName)));}break;
-                    case "long":{
-                        if(field.getType().isPrimitive()){
-                            field.setLong(instance,resultSet.getLong(columnName));
-                        }else{
-                            field.setLong(instance, Long.valueOf(resultSet.getLong(columnName)));
-                        }
-                    };break;
-                    case "float":{
-                        if(field.getType().isPrimitive()){
-                            field.setFloat(instance,resultSet.getFloat(columnName));
-                        }else{
-                            field.setFloat(instance, Float.valueOf(resultSet.getFloat(columnName)));
-                        }
-                    };break;
-                    case "double":{
-                        if(field.getType().isPrimitive()){
-                            field.setDouble(instance,resultSet.getDouble(columnName));
-                        }else{
-                            field.setDouble(instance, Double.valueOf(resultSet.getDouble(columnName)));
-                        }
-                    };break;
-                    case "boolean":{
-                        if(field.getType().isPrimitive()){
-                            field.setBoolean(instance,resultSet.getBoolean(columnName));
-                        }else{
-                            field.setBoolean(instance, Boolean.valueOf(resultSet.getBoolean(columnName)));
-                        }
-                    };break;
-                    case "date":{
-                        Object o = resultSet.getObject(columnName);
-                        if(o instanceof Long){
-                            Date date = new Date(((Long)o).longValue());
-                            field.set(instance,date);
-                        }else if(o instanceof Date){
-                            field.set(instance,o);
-                        }
-                    };break;
-                    default:{
-                        field.set(instance,resultSet.getObject(columnName));
-                    }
-                }
+            JSONObject o = new JSONObject();
+            for(int i=1;i<=columnCount;i++){
+                o.put(StringUtil.Underline2Camel(metaData.getColumnLabel(i).toLowerCase().substring(tableNameAlias.length()+1)),resultSet.getString(i));
             }
-            instanceList.add(instance);
+            array.add(o);
         }
         resultSet.close();
-        return instanceList;
+        return array;
     }
 
     /**

@@ -37,8 +37,8 @@ public interface Condition<T> {
     Condition addAggerate(String aggerate,String field,String alias);
     /**分组*/
     Condition groupBy(String field);
-    /**分组过滤*/
-    Condition having(String query);
+//    /**分组过滤*/
+//    Condition having(String query);
     /**关联表*/
     <T> SubCondition<T> joinTable(Class<T> _class, String primaryField, String joinTableField);
 
@@ -62,6 +62,8 @@ public interface Condition<T> {
     /**获取复合列表(即返回关联表字段)*/
     List<T> getCompositList();
     JSONArray getCompositArray();
+    /**获取部分列*/
+    List<T> getPartList();
     List<T> getValueList(Class<T> _class, String column);
 
     JSONArray getAggerateList();

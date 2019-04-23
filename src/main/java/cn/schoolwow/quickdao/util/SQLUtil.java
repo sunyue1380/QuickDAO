@@ -18,7 +18,17 @@ public class SQLUtil {
     public static String fetch(Class _class,String property) {
         String key = "fetch_" + _class.getName()+"_"+property;
         if (!sqlCache.containsKey(key)) {
-            String fetchSQL = "select " + columns(_class,"t") + " from `" + classTableMap.get(_class) + "` as t where t.`"+property+"` = ?";
+            String fetchSQL = "select " + columns(_class,"t") + " from `" + classTableMap.get(_class) + "` as t where t.`"+StringUtil.Camel2Underline(property)+"` = ?";
+            sqlCache.put(key, fetchSQL);
+        }
+        return sqlCache.getString(key);
+    }
+
+    /**返回fetch语句*/
+    public static String fetchNull(Class _class,String property) {
+        String key = "fetch_" + _class.getName()+"_"+property;
+        if (!sqlCache.containsKey(key)) {
+            String fetchSQL = "select " + columns(_class,"t") + " from `" + classTableMap.get(_class) + "` as t where t.`"+StringUtil.Camel2Underline(property)+"` is null";
             sqlCache.put(key, fetchSQL);
         }
         return sqlCache.getString(key);
@@ -28,7 +38,7 @@ public class SQLUtil {
     public static String delete(Class _class,String property) {
         String key = "delete_" + _class.getName()+"_"+property;
         if (!sqlCache.containsKey(key)) {
-            String fetchSQL = "delete from `" + classTableMap.get(_class) + "` where `"+property+"` = ?";
+            String fetchSQL = "delete from `" + classTableMap.get(_class) + "` where `"+StringUtil.Camel2Underline(property)+"` = ?";
             sqlCache.put(key, fetchSQL);
         }
         return sqlCache.getString(key);

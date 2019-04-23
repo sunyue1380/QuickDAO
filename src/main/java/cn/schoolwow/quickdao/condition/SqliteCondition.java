@@ -25,33 +25,28 @@ public class SqliteCondition extends AbstractCondition{
 
     @Override
     public long update() {
-        if(!hasDone){
-            done();
-        }
+        assureDone();
         if(setBuilder.length()==0){
-            logger.warn("请先调用addUpdate方法!");
-            return 0;
+            throw new IllegalArgumentException("请先调用addUpdate()函数!");
+        }
+        if(updateParameterList==null||updateParameterList.size()==0){
+            throw new IllegalArgumentException("请先调用addUpdate()函数!");
         }
         sqlBuilder.setLength(0);
-        sqlBuilder.append("update "+tableName+" "+setBuilder.toString()+" ");
-        //添加查询条件
-        sqlBuilder.append(whereBuilder.toString().replaceAll("t\\.",""));
-        sql = sqlBuilder.toString().replaceAll("\\s+"," ");
+        sqlBuilder.append("update "+tableName+" ");
+        sqlBuilder.append(setBuilder.toString()+" ");
+        sqlBuilder.append(whereBuilder.toString());
+        sql = sqlBuilder.toString().replace("t."," ").replaceAll("\\s+"," ");
+        logger.info("[批量更新]执行SQL语句:{}",sql);
 
         long effect = -1;
         try (Connection connection = dataSource.getConnection();
              PreparedStatement ps = connection.prepareStatement(sql);){
-            int parameterIndex = 1;
-            if(updateParameterList!=null&&updateParameterList.size()>0){
-                for(Object parameter:updateParameterList){
-                    ps.setObject(parameterIndex++,parameter);
-                    replaceParameter(parameter);
-                }
-            }
-            for(Object parameter:parameterList){
+            for(Object parameter:updateParameterList){
                 ps.setObject(parameterIndex++,parameter);
                 replaceParameter(parameter);
             }
+            addMainTableParameters(ps);
             logger.debug("[Update]执行SQL:{}",sql);
             effect = ps.executeUpdate();
         } catch (SQLException e) {

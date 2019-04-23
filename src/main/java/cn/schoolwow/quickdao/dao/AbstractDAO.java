@@ -81,46 +81,54 @@ public abstract class AbstractDAO implements DAO {
     public <T> List<T> fetchList(Class<T> _class, String property, Object value){
         try {
             Connection connection = dataSource.getConnection();
-            String fetchSQL = SQLUtil.fetch(_class, property);
-            PreparedStatement ps = connection.prepareStatement(fetchSQL);
-            switch (value.getClass().getSimpleName().toLowerCase()) {
-                case "int": {
-                    ps.setInt(1, (int) value);
-                }
-                break;
-                case "integer": {
-                    ps.setObject(1, (Integer) value);
-                }
-                break;
-                case "long": {
-                    if (value.getClass().isPrimitive()) {
-                        ps.setLong(1, (long) value);
-                    } else {
+            PreparedStatement ps = null;
+            int count = -1;
+            if(value==null){
+                String fetchNullSQL = SQLUtil.fetchNull(_class,property);
+                logger.debug("[根据属性{}=>{}获取对象]执行sql:{}",property,value,fetchNullSQL);
+                ps = connection.prepareStatement(fetchNullSQL);
+                count = (int) query(_class).addNullQuery(property).count();
+            }else{
+                String fetchSQL = SQLUtil.fetch(_class, property);
+                logger.debug("[根据属性{}=>{}获取对象]执行sql:{}",property,value,fetchSQL.replace("?",value.toString()));
+                ps = connection.prepareStatement(fetchSQL);
+                switch (value.getClass().getSimpleName().toLowerCase()) {
+                    case "int": {
+                        ps.setInt(1, (int) value);
+                    }
+                    break;
+                    case "integer": {
+                        ps.setObject(1, (Integer) value);
+                    }
+                    break;
+                    case "long": {
+                        if (value.getClass().isPrimitive()) {
+                            ps.setLong(1, (long) value);
+                        } else {
+                            ps.setObject(1, value);
+                        }
+                    }
+                    break;
+                    case "boolean": {
+                        if (value.getClass().isPrimitive()) {
+                            ps.setBoolean(1, (boolean) value);
+                        } else {
+                            ps.setObject(1, value);
+                        }
+                    }
+                    break;
+                    case "string": {
+                        ps.setString(1, value.toString());
+                    }
+                    break;
+                    default: {
                         ps.setObject(1, value);
                     }
                 }
-                break;
-                case "boolean": {
-                    if (value.getClass().isPrimitive()) {
-                        ps.setBoolean(1, (boolean) value);
-                    } else {
-                        ps.setObject(1, value);
-                    }
-                }
-                break;
-                case "string": {
-                    ps.setString(1, value == null ? "" : value.toString());
-                }
-                break;
-                default: {
-                    ps.setObject(1, value);
-                }
+                count = (int) query(_class).addQuery(property,value).count();
             }
-            int count = (int) query(_class).addQuery(property,value).count();
-            List<T> instanceList = new ArrayList(count);
             ResultSet resultSet = ps.executeQuery();
-            logger.debug("[根据属性{}=>{}获取对象]执行sql:{}",property,value,fetchSQL.replace("?",value.toString()));
-            ReflectionUtil.mappingResultToList(resultSet,instanceList,_class);
+            List<T> instanceList = ReflectionUtil.mappingResultSetToList(resultSet,count,_class);
             ps.close();
             connection.close();
             return instanceList;
@@ -133,7 +141,7 @@ public abstract class AbstractDAO implements DAO {
     @Override
     public <T> Condition<T> query(Class<T> _class) {
         //根据类型返回对应
-        if(this instanceof SQLiteDAO){
+        if(this instanceof SQLiteDAO||this instanceof H2DAO){
             return new SqliteCondition(_class,dataSource);
         }else{
             return new AbstractCondition<>(_class, dataSource);

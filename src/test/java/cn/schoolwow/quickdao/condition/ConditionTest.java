@@ -10,6 +10,9 @@ import cn.schoolwow.quickdao.entity.user.User;
 import cn.schoolwow.quickdao.entity.user.UserPlayList;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.serializer.SerializeConfig;
+import com.alibaba.fastjson.serializer.SerializerFeature;
+import com.alibaba.fastjson.support.config.FastJsonConfig;
 import org.junit.Assert;
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -30,23 +33,65 @@ public class ConditionTest extends DAOTest{
         List<User> userList = dao.query(User.class)
                 .addQuery("username","@")
                 .addQuery("type",">=",1)
-                .addNotInQuery("token",new String[]{"7a746f17a9bf4903b09b617135152c71","9204d99472c04ce7abf1bcb9773b0d49"})
+                .addInQuery("token",new String[]{"7a746f17a9bf4903b09b617135152c71","9204d99472c04ce7abf1bcb9773b0d49"})
                 .addNotNullQuery("lastLogin")
                 .orderByDesc("id")
                 .page(1,10)
                 .getList();
         logger.info("[测试查询功能]查询结果:{}", JSON.toJSONString(userList));
-        Assert.assertTrue(userList.size()==0);
+        Assert.assertTrue(userList.size()==2);
+
+        userList = dao.query(User.class)
+                .addNotEmptyQuery("username")
+                .addNotInQuery("username",new String[]{"1212"})
+                .addQuery("type = 1")
+                .orderByDesc("id")
+                .limit(0,10)
+                .getList();
+        logger.info("[测试查询功能]查询结果:{}", JSON.toJSONString(userList));
+        Assert.assertTrue(userList.size()==2);
+    }
+
+    @Test
+    public void testAddUpdate() throws Exception {
+        long effect = dao.query(User.class)
+                .addQuery("username","@")
+                .addUpdate("password","123456")
+                .joinTable(UserPlayList.class,"id","userId")
+                .addQuery("playlistId",1)
+                .done()
+                .update();
+        logger.info("[测试addUpdate功能]影响:{}",effect);
+        Assert.assertTrue(effect==1||effect==2);
     }
 
     @Test
     public void testAggerateQuery() throws Exception {
         JSONArray array = dao.query(PlayList.class)
-                .addAggerate("COUNT","id")
+                .addAggerate("SUM","subscribeCount")
+                .addAggerate("COUNT","id","count(id)")
                 .addColumn("tv")
                 .groupBy("tv")
+                .orderBy("id")
                 .getAggerateList();
         logger.info("[测试查询功能]查询结果:{}",array.toJSONString());
+        Assert.assertTrue(array.getJSONObject(0).getString("count(id)").equals("1"));
+    }
+
+    @Test
+    public void testPartListQuery() throws Exception {
+        List<User> userList = dao.query(User.class)
+                .addColumn("username")
+                .addColumn("password")
+                .addQuery("username","@")
+                .addQuery("type",">=",1)
+                .addInQuery("token",new String[]{"7a746f17a9bf4903b09b617135152c71","9204d99472c04ce7abf1bcb9773b0d49"})
+                .addNotNullQuery("lastLogin")
+                .orderByDesc("id")
+                .page(1,10)
+                .getPartList();
+        logger.info("[测试查询功能]查询结果:{}", JSON.toJSONString(userList, SerializerFeature.NotWriteDefaultValue));
+        Assert.assertTrue(userList.size()==2);
     }
 
     @Test
@@ -96,6 +141,10 @@ public class ConditionTest extends DAOTest{
                 .done()
                 .joinTable(Video.class,"video_id","id")
                 .addQuery("title","创业时代 01")
+                .addInQuery("id",new Long[]{1l})
+                .addNotNullQuery("title")
+                .addNullQuery("publishTime")
+                .addNotEmptyQuery("picture")
                 .done()
                 .getList();
         logger.info("[查询用户名为sunyue@schoolwow.cn的对于视频标题为创业时代 01的播放历史]查询结果:{}", JSON.toJSON(playHistoryList));
