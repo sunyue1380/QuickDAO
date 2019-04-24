@@ -6,6 +6,7 @@ import com.alibaba.fastjson.JSONArray;
 import java.util.List;
 
 public interface Condition<T> {
+    Condition distinct();
     /**添加空查询*/
     Condition addNullQuery(String field);
     /**添加非空查询*/
@@ -51,8 +52,6 @@ public interface Condition<T> {
     /**分页操作*/
     Condition page(int pageNum,int pageSize);
     Condition addColumn(String field);
-
-//    Condition done();
 
     long count();
     long update();

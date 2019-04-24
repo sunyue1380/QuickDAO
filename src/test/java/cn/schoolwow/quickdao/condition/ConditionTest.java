@@ -31,11 +31,12 @@ public class ConditionTest extends DAOTest{
     @Test
     public void testAddQuery() throws Exception {
         List<User> userList = dao.query(User.class)
+                .distinct()
                 .addQuery("username","@")
                 .addQuery("type",">=",1)
                 .addInQuery("token",new String[]{"7a746f17a9bf4903b09b617135152c71","9204d99472c04ce7abf1bcb9773b0d49"})
                 .addNotNullQuery("lastLogin")
-                .orderByDesc("id")
+                .orderByDesc("uid")
                 .page(1,10)
                 .getList();
         logger.info("[测试查询功能]查询结果:{}", JSON.toJSONString(userList));
@@ -45,7 +46,7 @@ public class ConditionTest extends DAOTest{
                 .addNotEmptyQuery("username")
                 .addNotInQuery("username",new String[]{"1212"})
                 .addQuery("type = 1")
-                .orderByDesc("id")
+                .orderByDesc("uid")
                 .limit(0,10)
                 .getList();
         logger.info("[测试查询功能]查询结果:{}", JSON.toJSONString(userList));
@@ -57,7 +58,7 @@ public class ConditionTest extends DAOTest{
         long effect = dao.query(User.class)
                 .addQuery("username","@")
                 .addUpdate("password","123456")
-                .joinTable(UserPlayList.class,"id","userId")
+                .joinTable(UserPlayList.class,"uid","userId")
                 .addQuery("playlistId",1)
                 .done()
                 .update();
@@ -87,7 +88,7 @@ public class ConditionTest extends DAOTest{
                 .addQuery("type",">=",1)
                 .addInQuery("token",new String[]{"7a746f17a9bf4903b09b617135152c71","9204d99472c04ce7abf1bcb9773b0d49"})
                 .addNotNullQuery("lastLogin")
-                .orderByDesc("id")
+                .orderByDesc("uid")
                 .page(1,10)
                 .getPartList();
         logger.info("[测试查询功能]查询结果:{}", JSON.toJSONString(userList, SerializerFeature.NotWriteDefaultValue));
@@ -101,7 +102,7 @@ public class ConditionTest extends DAOTest{
                 .addQuery("type",">=",1)
                 .addInQuery("token",new String[]{"7a746f17a9bf4903b09b617135152c71","9204d99472c04ce7abf1bcb9773b0d49"})
                 .addNotNullQuery("lastLogin")
-                .orderByDesc("id")
+                .orderByDesc("uid")
                 .page(1,10)
                 .getPagingList();
         logger.info("[测试查询功能]查询结果:{}", JSON.toJSONString(pagingList));
@@ -115,9 +116,9 @@ public class ConditionTest extends DAOTest{
                 .addQuery("type",">=",1)
                 .addInQuery("token",new String[]{"7a746f17a9bf4903b09b617135152c71","9204d99472c04ce7abf1bcb9773b0d49"})
                 .addNotNullQuery("lastLogin")
-                .orderByDesc("id")
+                .orderByDesc("uid")
                 .page(1,10)
-                .getValueList(Long.class,"id");
+                .getValueList(Long.class,"uid");
         logger.info("[测试查询Value功能]查询结果:{}", JSON.toJSON(userIds));
         Assert.assertTrue(userIds.size()==2);
     }
@@ -136,7 +137,7 @@ public class ConditionTest extends DAOTest{
         //测试多个外键关联
         //查询用户名为sunyue@schoolwow.cn的对于视频标题为创业时代 01的播放历史
         List<PlayHistory> playHistoryList = dao.query(PlayHistory.class)
-                .joinTable(User.class,"user_id","id")
+                .joinTable(User.class,"user_id","uid")
                 .addQuery("username","sunyue@schoolwow.cn")
                 .done()
                 .joinTable(Video.class,"video_id","id")
@@ -182,7 +183,7 @@ public class ConditionTest extends DAOTest{
                 .addQuery("type",">=",1)
                 .addInQuery("token",new String[]{"7a746f17a9bf4903b09b617135152c71","9204d99472c04ce7abf1bcb9773b0d49"})
                 .addNotNullQuery("lastLogin")
-                .orderByDesc("id")
+                .orderByDesc("uid")
                 .page(1,10)
                 .count();
         logger.info("[测试Count功能]查询结果:{}",count);

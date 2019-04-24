@@ -20,6 +20,7 @@ import java.util.List;
 
 public class AbstractCondition<T> implements Condition<T>{
     Logger logger = LoggerFactory.getLogger(AbstractCondition.class);
+    protected String distinct = "";
     /**列名*/
     protected StringBuilder columnBuilder = new StringBuilder();
     /**聚合函数*/
@@ -69,6 +70,12 @@ public class AbstractCondition<T> implements Condition<T>{
         this._class = _class;
         this.tableName = "`"+SQLUtil.classTableMap.get(_class)+"`";
         this.dataSource = dataSource;
+    }
+
+    @Override
+    public Condition distinct() {
+        distinct = "distinct";
+        return this;
     }
 
     @Override
@@ -361,7 +368,7 @@ public class AbstractCondition<T> implements Condition<T>{
     public List<T> getList() {
         assureDone();
         sqlBuilder.setLength(0);
-        sqlBuilder.append("select "+SQLUtil.columns(_class,"t")+" from "+tableName+" as t ");
+        sqlBuilder.append("select "+distinct+" "+SQLUtil.columns(_class,"t")+" from "+tableName+" as t ");
         addJoinTableStatement();
         addWhereStatement();
         sqlBuilder.append(" "+orderByBuilder.toString()+" "+limit);
@@ -405,7 +412,7 @@ public class AbstractCondition<T> implements Condition<T>{
     public JSONArray getCompositArray() {
         assureDone();
         sqlBuilder.setLength(0);
-        sqlBuilder.append("select "+SQLUtil.columns(_class,"t"));
+        sqlBuilder.append("select "+distinct+" "+SQLUtil.columns(_class,"t"));
         for(AbstractSubCondition subCondition:subConditionList){
             sqlBuilder.append(","+SQLUtil.columns(subCondition._class,subCondition.tableAliasName));
         }
@@ -493,7 +500,7 @@ public class AbstractCondition<T> implements Condition<T>{
         }
         assureDone();
         sqlBuilder.setLength(0);
-        sqlBuilder.append("select "+columnBuilder.toString()+" from "+tableName+" as t ");
+        sqlBuilder.append("select "+distinct+" "+columnBuilder.toString()+" from "+tableName+" as t ");
         addJoinTableStatement();
         addWhereStatement();
         sqlBuilder.append(" "+ orderByBuilder.toString()+" "+limit);
@@ -518,7 +525,7 @@ public class AbstractCondition<T> implements Condition<T>{
     public List<T> getValueList(Class<T> _class, String column) {
         assureDone();
         sqlBuilder.setLength(0);
-        sqlBuilder.append("select "+(columnBuilder.length()>0?columnBuilder.toString():"t.`"+column+"`")+" from "+tableName+" as t ");
+        sqlBuilder.append("select "+distinct+" "+(columnBuilder.length()>0?columnBuilder.toString():"t.`"+column+"`")+" from "+tableName+" as t ");
         addJoinTableStatement();
         addWhereStatement();
         sqlBuilder.append(" "+ orderByBuilder.toString()+" "+limit);
@@ -543,7 +550,7 @@ public class AbstractCondition<T> implements Condition<T>{
     public JSONArray getAggerateList() {
         assureDone();
         sqlBuilder.setLength(0);
-        sqlBuilder.append("select "+columnBuilder.toString()+" ,"+aggerateColumnBuilder.toString()+" from "+tableName+" as t ");
+        sqlBuilder.append("select "+distinct+" "+columnBuilder.toString()+" ,"+aggerateColumnBuilder.toString()+" from "+tableName+" as t ");
         addJoinTableStatement();
         addWhereStatement();
         sqlBuilder.append(groupByBuilder.toString()+" "+havingBuilder.toString()+" "+orderByBuilder.toString()+" "+limit);

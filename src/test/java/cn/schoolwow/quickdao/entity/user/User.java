@@ -1,6 +1,7 @@
 package cn.schoolwow.quickdao.entity.user;
 
 import cn.schoolwow.quickdao.annotation.Comment;
+import cn.schoolwow.quickdao.annotation.Id;
 import cn.schoolwow.quickdao.annotation.Ignore;
 import cn.schoolwow.quickdao.annotation.Unique;
 
@@ -10,7 +11,8 @@ public class User {
     /**
      * 唯一标识
      */
-    private long id;
+    @Id
+    private long uid;
     /**
      * 用户
      */
@@ -36,11 +38,11 @@ public class User {
     private String token;
 
     public long getId() {
-        return id;
+        return uid;
     }
 
     public void setId(long id) {
-        this.id = id;
+        this.uid = id;
     }
 
     public String getUsername() {

@@ -20,33 +20,45 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 public class ReflectionUtil {
+    /**记录sql语句*/
     private static JSONObject sqlCache = new JSONObject();
+    /**记录类对应字段数组*/
     private static Map<Class,Field[]> classFieldsCache = new HashMap<>();
+    /**记录复杂对象对应字段*/
     private static Map<String,Field> compositFieldCache = new HashMap<>();
+    /**记录类对应主键字段*/
+    public static Map<Class,Field> idCache = new HashMap<>();
     public static String packageName = null;
 
     /**获取id属性*/
-    public static Field getId(Class _class) throws NoSuchFieldException {
-        Field id = _class.getDeclaredField("id");
-        id.setAccessible(true);
-        return id;
+    public static boolean isIdField(Field field) {
+        return idCache.get(field.getDeclaringClass()).getName().equals(field.getName());
+    }
+
+    /**获取id属性*/
+    public static Field getId(Class _class) {
+        return idCache.get(_class);
     }
     /**获取id属性*/
     public static void setId(Object instance,long value) throws NoSuchFieldException, IllegalAccessException {
         Field id = getId(instance.getClass());
         id.setLong(instance,value);
     }
-    /**获取类属性*/
+    /**获取类属性
+     * 排除复杂对象字段*/
     public static Field[] getFields(Class _class){
         if(!classFieldsCache.containsKey(_class)){
             Field[] fields = _class.getDeclaredFields();
             Field.setAccessible(fields,true);
+            List<Field> fieldList = new ArrayList<>(fields.length);
             for(Field field:fields){
                 if(field.getType().getName().contains(packageName)){
                     compositFieldCache.put(_class.getName()+"_"+field.getType().getName(),field);
+                }else if(field.getDeclaredAnnotation(Ignore.class)==null){
+                    fieldList.add(field);
                 }
             }
-            List<Field> fieldList = Arrays.asList(fields).stream().filter(f->!f.getType().getName().contains(packageName)).collect(Collectors.toList());
+//            List<Field> fieldList = Arrays.asList(fields).stream().filter(f->!f.getType().getName().contains(packageName)).collect(Collectors.toList());
             fields = fieldList.toArray(new Field[fieldList.size()]);
             classFieldsCache.put(_class,fields);
         }
@@ -69,8 +81,7 @@ public class ReflectionUtil {
     /**对象是否存在id*/
     public static boolean hasId(Object instance) throws NoSuchFieldException, IllegalAccessException {
         Class _class = instance.getClass();
-        Field id = _class.getDeclaredField("id");
-        id.setAccessible(true);
+        Field id = getId(_class);
         switch (id.getType().getSimpleName().toLowerCase()) {
             case "int": {
                 return id.getInt(instance) <= 0 ? false : true;
@@ -99,7 +110,7 @@ public class ReflectionUtil {
         int parameterIndex = 1;
         Field[] fields = getFields(instance.getClass());
         for(int i=0;i<fields.length;i++){
-            if(fields[i].getName().equals("id")||fields[i].getAnnotation(Ignore.class)!=null){
+            if(ReflectionUtil.isIdField(fields[i])){
                 continue;
             }
             sql = sql.replaceFirst("\\?",setParameter(instance, ps, parameterIndex, fields[i]));
@@ -116,7 +127,7 @@ public class ReflectionUtil {
         Field[] fields = getFields(instance.getClass());
         //先设置非id属性
         for(int i=0;i<fields.length;i++){
-            if(fields[i].getName().equals("id")||fields[i].getAnnotation(Ignore.class)!=null){
+            if(ReflectionUtil.isIdField(fields[i])){
                 continue;
             }
             sql.replaceFirst("\\?",setParameter(instance,ps,parameterIndex,fields[i]));
@@ -135,7 +146,7 @@ public class ReflectionUtil {
         Field[] fields = getFields(instance.getClass());
         //先设置非Unique字段
         for(int i=0;i<fields.length;i++){
-            if(fields[i].getName().equals("id")||fields[i].getAnnotation(Ignore.class)!=null||fields[i].getAnnotation(Unique.class)!=null){
+            if(ReflectionUtil.isIdField(fields[i])||fields[i].getAnnotation(Unique.class)!=null){
                 continue;
             }
             sql = sql.replaceFirst("\\?",setParameter(instance, ps, parameterIndex, fields[i]));

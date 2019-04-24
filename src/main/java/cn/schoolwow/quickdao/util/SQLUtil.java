@@ -12,6 +12,7 @@ import java.util.Map;
 
 public class SQLUtil {
     private static JSONObject sqlCache = new JSONObject();
+    /**存储类和表名的映射关系*/
     public final static Map<Class,String> classTableMap = new HashMap<>();
 
     /**返回fetch语句*/
@@ -50,10 +51,9 @@ public class SQLUtil {
         if (!sqlCache.containsKey(key)) {
             StringBuilder builder = new StringBuilder();
             builder.append(insertIgnoreSQL+" `" + classTableMap.get(_class)+"`(");
-            Field[] fields = _class.getDeclaredFields();
-            Field.setAccessible(fields,true);
+            Field[] fields = ReflectionUtil.getFields(_class);
             for(int i=0;i<fields.length;i++){
-                if(fields[i].getName().equals("id")||fields[i].getAnnotation(Ignore.class)!=null){
+                if(ReflectionUtil.isIdField(fields[i])){
                     continue;
                 }
                 builder.append("`"+StringUtil.Camel2Underline(fields[i].getName()) + "`,");
@@ -61,7 +61,7 @@ public class SQLUtil {
             builder.deleteCharAt(builder.length()-1);
             builder.append(") values(");
             for(int i=0;i<fields.length;i++){
-                if(fields[i].getName().equals("id")||fields[i].getAnnotation(Ignore.class)!=null){
+                if(ReflectionUtil.isIdField(fields[i])){
                     continue;
                 }
                 builder.append("?,");
@@ -81,10 +81,9 @@ public class SQLUtil {
         if (!sqlCache.containsKey(key)) {
             StringBuilder builder = new StringBuilder();
             builder.append("update `" + classTableMap.get(_class)+"` set ");
-            Field[] fields = _class.getDeclaredFields();
-            Field.setAccessible(fields,true);
+            Field[] fields = ReflectionUtil.getFields(_class);
             for(int i=0;i<fields.length;i++){
-                if(fields[i].getName().equals("id")||fields[i].getAnnotation(Ignore.class)!=null||fields[i].getAnnotation(Unique.class)!=null){
+                if(ReflectionUtil.isIdField(fields[i])||fields[i].getAnnotation(Unique.class)!=null){
                     continue;
                 }
                 builder.append("`"+StringUtil.Camel2Underline(fields[i].getName()) + "`=?,");
@@ -108,16 +107,15 @@ public class SQLUtil {
         if(!sqlCache.containsKey(key)){
             StringBuilder builder = new StringBuilder();
             builder.append("update `" + classTableMap.get(_class) + "` set ");
-            Field[] fields = _class.getDeclaredFields();
-            Field.setAccessible(fields,true);
+            Field[] fields = ReflectionUtil.getFields(_class);
             for(int i=0;i<fields.length;i++){
-                if(fields[i].getName().equals("id")||fields[i].getAnnotation(Ignore.class)!=null){
+                if(ReflectionUtil.isIdField(fields[i])){
                     continue;
                 }
                 builder.append("`"+StringUtil.Camel2Underline(fields[i].getName()) + "`=?,");
             }
             builder.deleteCharAt(builder.length() - 1);
-            builder.append(" where id = ?");
+            builder.append(" where `"+ReflectionUtil.getId(_class).getName()+"` = ?");
             sqlCache.put(key,builder.toString());
         }
         return sqlCache.getString(key);
@@ -128,13 +126,10 @@ public class SQLUtil {
         String key = "columnTable_"+_class.getName()+"_"+tableAlias;
         if (!sqlCache.containsKey(key)){
             StringBuilder builder = new StringBuilder();
-            //排除ignore注解在字段
             Field[] fields = ReflectionUtil.getFields(_class);
             for(Field field:fields){
-                if(field.getDeclaredAnnotation(Ignore.class)==null){
-                    String columnName = StringUtil.Camel2Underline(field.getName());
-                    builder.append(tableAlias+".`"+columnName+"` as "+tableAlias+"_"+columnName+",");
-                }
+                String columnName = StringUtil.Camel2Underline(field.getName());
+                builder.append(tableAlias+".`"+columnName+"` as "+tableAlias+"_"+columnName+",");
             }
             builder.deleteCharAt(builder.length()-1);
             sqlCache.put(key, builder.toString());

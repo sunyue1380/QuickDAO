@@ -64,7 +64,8 @@ public abstract class AbstractDAO implements DAO {
 
     @Override
     public <T> T fetch(Class<T> _class, long id){
-        return fetch(_class, "id", id);
+        String name = ReflectionUtil.getId(_class).getName();
+        return fetch(_class, name, id);
     }
 
     @Override
@@ -287,7 +288,8 @@ public abstract class AbstractDAO implements DAO {
 
     @Override
     public long delete(Class _class, long id) {
-        return delete(_class, "id", id);
+        String name = ReflectionUtil.getId(_class).getName();
+        return delete(_class, name, id);
     }
 
     @Override
@@ -471,8 +473,8 @@ public abstract class AbstractDAO implements DAO {
         for (Class c : classList) {
             JSONObject entity = new JSONObject();
             entity.put("ignore", c.getDeclaredAnnotation(Ignore.class) != null);
-            //支持实体包多个文件夹
             if((packageName.length()+c.getSimpleName().length()+1)==c.getName().length()){
+                //支持实体包多个文件夹
                 entity.put("tableName",StringUtil.Camel2Underline(c.getSimpleName()));
             }else{
                 String prefix = c.getName().substring(packageName.length()+1,c.getName().lastIndexOf(".")).replace(".","_");
@@ -492,9 +494,12 @@ public abstract class AbstractDAO implements DAO {
                 property.put("column", StringUtil.Camel2Underline(fields[i].getName()));
                 property.put("unique", fields[i].getDeclaredAnnotation(Unique.class) != null);
                 property.put("notNull", fields[i].getDeclaredAnnotation(NotNull.class) != null);
-                if ("id".equals(property.getString("column"))) {
+                property.put("id", fields[i].getDeclaredAnnotation(Id.class) != null||"id".equals(property.getString("column")));
+                if(property.getBoolean("id")){
                     property.put("unique", true);
                     property.put("notNull", true);
+                    fields[i].setAccessible(true);
+                    ReflectionUtil.idCache.put(c,fields[i]);
                 }
                 if (fields[i].getDeclaredAnnotation(ColumnType.class) != null) {
                     property.put("columnType", fields[i].getDeclaredAnnotation(ColumnType.class).value());
@@ -626,7 +631,7 @@ public abstract class AbstractDAO implements DAO {
                         }
                         String column = property.getString("column");
                         String columnType = property.containsKey("columnType")?property.getString("columnType"):fieldMapping.get(property.getString("type"));
-                        if("id".equals(column)){
+                        if(property.getBoolean("id")){
                             //主键新增
                             builder.append(column+" "+columnType+" primary key "+getSyntax(Syntax.AutoIncrement));
                         }else{

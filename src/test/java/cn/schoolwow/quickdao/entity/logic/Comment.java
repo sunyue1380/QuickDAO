@@ -1,5 +1,7 @@
 package cn.schoolwow.quickdao.entity.logic;
 
+import cn.schoolwow.quickdao.annotation.Id;
+
 import java.util.Date;
 
 public class Comment {
