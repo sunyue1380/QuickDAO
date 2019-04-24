@@ -34,7 +34,6 @@ public class QuickDAO {
 
     public QuickDAO dataSource(DataSource dataSource){
         this.dataSource = dataSource;
-//        logger.debug("[设置数据源]{}",dataSource);
         return this;
     }
     public QuickDAO packageName(String packageName){

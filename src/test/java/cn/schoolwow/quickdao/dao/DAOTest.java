@@ -113,23 +113,6 @@ public class DAOTest {
 
     }
 
-
-//    @Test
-//    public void testLastInsertId() throws Exception {
-//        Connection connection = dataSource.getConnection();
-//        //设置事务并获取lastInsertId
-//        connection.setAutoCommit(false);
-//        connection.prepareStatement("INSERT INTO `quickdao`.`user` (`username`, `password`, `last_login`, `type`, `token`) VALUES ('sunyue2@schoolwow.cn', '123456789', '2019-01-05 19:48:29', '1', 'dc85b9187e894c4b8a9b8a22bc416098');").executeUpdate();
-//        ResultSet rs = connection.prepareStatement("select last_insert_id();").executeQuery();
-//        if(rs.next()){
-//            System.out.println("id:"+rs.getLong(1));
-//            System.out.println(JSON.toJSONString(dao.fetch(User.class,rs.getLong(1))));
-//        }
-//        rs.close();
-//        connection.commit();
-//        connection.close();
-//    }
-
     @Test
     public void fetch() throws Exception {
         User user = dao.fetch(User.class,1l);
@@ -169,7 +152,7 @@ public class DAOTest {
         user.setPassword("123456");
         long effect = dao.save(user);
         logger.debug("[把用户名为sunyue@schoolwow.cn的密码改为123456]:{}",effect);
-//        Assert.assertTrue(user.getId()==1);
+        Assert.assertTrue(user.getUid()==1);
 
         //根据id更新
         Comment comment = dao.fetch(Comment.class,1);
@@ -186,7 +169,7 @@ public class DAOTest {
         newComment.setVideoId(1);
         effect = dao.save(newComment);
         logger.debug("[添加一条新的评论]影响:{},id:{}",effect,newComment.getId());
-//        Assert.assertTrue(newComment.getId()==2);
+        Assert.assertTrue(newComment.getId()>1);
     }
 
     @Test

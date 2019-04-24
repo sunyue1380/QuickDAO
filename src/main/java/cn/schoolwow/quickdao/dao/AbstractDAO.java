@@ -176,7 +176,7 @@ public abstract class AbstractDAO implements DAO {
                             condition.addQuery(StringUtil.Camel2Underline(field.getName()),field.get(instance));
                         }
                     }
-                    List<Long> ids = condition.getValueList(Long.class,"id");
+                    List<Long> ids = condition.getValueList(Long.class,ReflectionUtil.getId(_class).getName());
                     if(ids.size()>0){
                         ReflectionUtil.setId(instance,ids.get(0));
                     }
@@ -196,9 +196,10 @@ public abstract class AbstractDAO implements DAO {
                 if(effect>0){
                     //获取主键
                     ResultSet rs = ps.getGeneratedKeys();
-                    rs.next();
-                    long id = rs.getLong(1);
-                    ReflectionUtil.setId(instance,id);
+                    if(rs.next()){
+                        long id = rs.getLong(1);
+                        ReflectionUtil.setId(instance,id);
+                    }
                     rs.close();
                 }
             }
@@ -492,6 +493,7 @@ public abstract class AbstractDAO implements DAO {
                 boolean ignore = fields[i].getType().getName().contains(packageName)||fields[i].getDeclaredAnnotation(Ignore.class) != null;
                 property.put("ignore",ignore);
                 property.put("column", StringUtil.Camel2Underline(fields[i].getName()));
+                property.put("type", fields[i].getType().getSimpleName().toLowerCase());
                 property.put("unique", fields[i].getDeclaredAnnotation(Unique.class) != null);
                 property.put("notNull", fields[i].getDeclaredAnnotation(NotNull.class) != null);
                 property.put("id", fields[i].getDeclaredAnnotation(Id.class) != null||"id".equals(property.getString("column")));
@@ -503,6 +505,8 @@ public abstract class AbstractDAO implements DAO {
                 }
                 if (fields[i].getDeclaredAnnotation(ColumnType.class) != null) {
                     property.put("columnType", fields[i].getDeclaredAnnotation(ColumnType.class).value());
+                }else{
+                    property.put("columnType", fieldMapping.get(property.getString("type")));
                 }
                 if (fields[i].getDeclaredAnnotation(DefaultValue.class) != null) {
                     property.put("default", fields[i].getDeclaredAnnotation(DefaultValue.class).value());
@@ -511,7 +515,6 @@ public abstract class AbstractDAO implements DAO {
                 if(fields[i].getDeclaredAnnotation(Comment.class)!=null){
                     property.put("comment",fields[i].getDeclaredAnnotation(Comment.class).value());
                 }
-                property.put("type", fields[i].getType().getSimpleName().toLowerCase());
                 properties.add(property);
             }
             entity.put("properties", properties);
@@ -620,39 +623,36 @@ public abstract class AbstractDAO implements DAO {
                 JSONObject target = getValue(dbEntityList,"tableName",tableName);
 
                 List<String> uniqueColumnList = new ArrayList<>();
-                if(target==null&&!source.getBoolean("ignore")){
+                if(target==null){
                     //新增数据库表
-                    StringBuilder builder = new StringBuilder("create table `"+tableName+"`(");
+                    StringBuilder createTableBuilder = new StringBuilder("create table `"+tableName+"`(");
                     JSONArray properties = source.getJSONArray("properties");
                     for(int j=0;j<properties.size();j++){
                         JSONObject property = properties.getJSONObject(j);
                         if(property.getBoolean("ignore")){
                             continue;
                         }
-                        String column = property.getString("column");
-                        String columnType = property.containsKey("columnType")?property.getString("columnType"):fieldMapping.get(property.getString("type"));
+                        createTableBuilder.append("`"+property.getString("column")+"` "+property.getString("columnType"));
                         if(property.getBoolean("id")){
                             //主键新增
-                            builder.append(column+" "+columnType+" primary key "+getSyntax(Syntax.AutoIncrement));
+                            createTableBuilder.append(" primary key "+getSyntax(Syntax.AutoIncrement));
                         }else{
-                            builder.append("`"+column+"` "+columnType);
                             if(property.containsKey("default")){
-                                builder.append(" default "+property.getString("default"));
+                                createTableBuilder.append(" default "+property.getString("default"));
                             }
                             if(property.getBoolean("notNull")){
-                                builder.append(" not null ");
+                                createTableBuilder.append(" not null ");
                             }
-                            builder.append(" "+getSyntax(Syntax.Comment,property.getString("comment")));
-
                             if(property.getBoolean("unique")){
-                                uniqueColumnList.add(column);
+                                uniqueColumnList.add(property.getString("column"));
                             }
                         }
-                        builder.append(",");
+                        createTableBuilder.append(" "+getSyntax(Syntax.Comment,property.getString("comment")));
+                        createTableBuilder.append(",");
                     }
-                    builder.deleteCharAt(builder.length()-1);
-                    builder.append(")");
-                    String sql = builder.toString().replaceAll("\\s+"," ");
+                    createTableBuilder.deleteCharAt(createTableBuilder.length()-1);
+                    createTableBuilder.append(")");
+                    String sql = createTableBuilder.toString().replaceAll("\\s+"," ");
                     logger.debug("[生成新表{}=>{}]执行sql:{}",className,tableName,sql);
                     connection.prepareStatement(sql).executeUpdate();
                 }else {

@@ -37,12 +37,12 @@ public class User {
     /**给用户颁发的token*/
     private String token;
 
-    public long getId() {
+    public long getUid() {
         return uid;
     }
 
-    public void setId(long id) {
-        this.uid = id;
+    public void setUid(long uid) {
+        this.uid = uid;
     }
 
     public String getUsername() {

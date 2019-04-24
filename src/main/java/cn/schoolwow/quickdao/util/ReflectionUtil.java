@@ -79,7 +79,7 @@ public class ReflectionUtil {
         return sqlCache.getBoolean(key);
     }
     /**对象是否存在id*/
-    public static boolean hasId(Object instance) throws NoSuchFieldException, IllegalAccessException {
+    public static boolean hasId(Object instance) throws IllegalAccessException {
         Class _class = instance.getClass();
         Field id = getId(_class);
         switch (id.getType().getSimpleName().toLowerCase()) {
@@ -92,9 +92,9 @@ public class ReflectionUtil {
             case "long": {
                 return ((!id.getType().isPrimitive() && id.get(instance) == null) || id.getLong(instance) <= 0) ? false : true;
             }
-            case "string": {
-                return id.get(instance) == null ? false : true;
-            }
+//            case "string": {
+//                return id.get(instance) == null ? false : true;
+//            }
             default: {
                 throw new IllegalArgumentException("无法识别的主键类型:" + id.getType().getSimpleName().toLowerCase());
             }
@@ -237,7 +237,6 @@ public class ReflectionUtil {
                 return "'"+(field.get(instance)==null?"":field.get(instance).toString())+"'";
             }
             default: {
-                //Date类型使用默认策略
                 ps.setObject(parameterIndex, field.get(instance));
                 return "'"+field.get(instance)+"'";
             }
