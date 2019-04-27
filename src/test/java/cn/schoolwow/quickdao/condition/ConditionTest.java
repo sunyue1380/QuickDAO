@@ -29,6 +29,20 @@ public class ConditionTest extends DAOTest{
     }
 
     @Test
+    public void testInstanceQuery() throws Exception {
+        User user = new User();
+        user.setUsername("@");
+        user.setType(1);
+        List<User> userList = dao.query(User.class)
+                .addInstanceQuery(user,false)
+                .orderByDesc("uid")
+                .page(1,10)
+                .getList();
+        logger.info("[测试查询功能]查询结果:{}", JSON.toJSONString(userList));
+        Assert.assertTrue(userList.size()==2);
+    }
+
+    @Test
     public void testAddQuery() throws Exception {
         List<User> userList = dao.query(User.class)
                 .distinct()

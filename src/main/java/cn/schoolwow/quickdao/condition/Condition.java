@@ -27,6 +27,11 @@ public interface Condition<T> {
     Condition addQuery(String property, Object value);
     /**添加属性查询*/
     Condition addQuery(String property, String operator, Object value);
+    /**添加实体属性查询*/
+    Condition addInstanceQuery(Object instance);
+    /**添加实体属性
+     * @param userBasicDataType 是否使用基本属性类型进行查询*/
+    Condition addInstanceQuery(Object instance,boolean userBasicDataType);
     /**添加更新字段*/
     Condition addUpdate(String property, Object value);
     /**添加聚合字段

@@ -317,7 +317,7 @@ public abstract class AbstractDAO implements DAO {
     public long clear(Class _class){
         try {
             Connection connection = getConnection();
-            String sql = "delete from `" + SQLUtil.classTableMap.get(_class)+"`";
+            String sql = "delete from `" + SQLUtil.classTableMap.get(_class.getName())+"`";
             logger.debug("[删除{}表]执行SQL:{}", _class.getSimpleName(),sql);
             PreparedStatement ps = connection.prepareStatement(sql);
             long effect = ps.executeUpdate();
@@ -481,7 +481,7 @@ public abstract class AbstractDAO implements DAO {
                 String prefix = c.getName().substring(packageName.length()+1,c.getName().lastIndexOf(".")).replace(".","_");
                 entity.put("tableName",prefix+"@"+StringUtil.Camel2Underline(c.getSimpleName()));
             }
-            SQLUtil.classTableMap.put(c,entity.getString("tableName"));
+            SQLUtil.classTableMap.put(c.getName(),entity.getString("tableName"));
             entity.put("className",c.getSimpleName());
             //添加表属性
             Field[] fields = c.getDeclaredFields();

@@ -13,13 +13,13 @@ import java.util.Map;
 public class SQLUtil {
     private static JSONObject sqlCache = new JSONObject();
     /**存储类和表名的映射关系*/
-    public final static Map<Class,String> classTableMap = new HashMap<>();
+    public final static Map<String,String> classTableMap = new HashMap<>();
 
     /**返回fetch语句*/
     public static String fetch(Class _class,String property) {
         String key = "fetch_" + _class.getName()+"_"+property;
         if (!sqlCache.containsKey(key)) {
-            String fetchSQL = "select " + columns(_class,"t") + " from `" + classTableMap.get(_class) + "` as t where t.`"+StringUtil.Camel2Underline(property)+"` = ?";
+            String fetchSQL = "select " + columns(_class,"t") + " from `" + classTableMap.get(_class.getName()) + "` as t where t.`"+StringUtil.Camel2Underline(property)+"` = ?";
             sqlCache.put(key, fetchSQL);
         }
         return sqlCache.getString(key);
@@ -29,7 +29,7 @@ public class SQLUtil {
     public static String fetchNull(Class _class,String property) {
         String key = "fetch_" + _class.getName()+"_"+property;
         if (!sqlCache.containsKey(key)) {
-            String fetchSQL = "select " + columns(_class,"t") + " from `" + classTableMap.get(_class) + "` as t where t.`"+StringUtil.Camel2Underline(property)+"` is null";
+            String fetchSQL = "select " + columns(_class,"t") + " from `" + classTableMap.get(_class.getName()) + "` as t where t.`"+StringUtil.Camel2Underline(property)+"` is null";
             sqlCache.put(key, fetchSQL);
         }
         return sqlCache.getString(key);
@@ -39,7 +39,7 @@ public class SQLUtil {
     public static String delete(Class _class,String property) {
         String key = "delete_" + _class.getName()+"_"+property;
         if (!sqlCache.containsKey(key)) {
-            String fetchSQL = "delete from `" + classTableMap.get(_class) + "` where `"+StringUtil.Camel2Underline(property)+"` = ?";
+            String fetchSQL = "delete from `" + classTableMap.get(_class.getName()) + "` where `"+StringUtil.Camel2Underline(property)+"` = ?";
             sqlCache.put(key, fetchSQL);
         }
         return sqlCache.getString(key);
@@ -50,7 +50,7 @@ public class SQLUtil {
         String key = "insertIgnore_" + insertIgnoreSQL+"_"+_class.getName();
         if (!sqlCache.containsKey(key)) {
             StringBuilder builder = new StringBuilder();
-            builder.append(insertIgnoreSQL+" `" + classTableMap.get(_class)+"`(");
+            builder.append(insertIgnoreSQL+" `" + classTableMap.get(_class.getName())+"`(");
             Field[] fields = ReflectionUtil.getFields(_class);
             for(int i=0;i<fields.length;i++){
                 if(ReflectionUtil.isIdField(fields[i])){
@@ -80,7 +80,7 @@ public class SQLUtil {
         String key = "updateByUniqueKey_" + _class.getName();
         if (!sqlCache.containsKey(key)) {
             StringBuilder builder = new StringBuilder();
-            builder.append("update `" + classTableMap.get(_class)+"` set ");
+            builder.append("update `" + classTableMap.get(_class.getName())+"` set ");
             Field[] fields = ReflectionUtil.getFields(_class);
             for(int i=0;i<fields.length;i++){
                 if(ReflectionUtil.isIdField(fields[i])||fields[i].getAnnotation(Unique.class)!=null){
@@ -106,7 +106,7 @@ public class SQLUtil {
         String key = "updateById_"+_class.getName();
         if(!sqlCache.containsKey(key)){
             StringBuilder builder = new StringBuilder();
-            builder.append("update `" + classTableMap.get(_class) + "` set ");
+            builder.append("update `" + classTableMap.get(_class.getName()) + "` set ");
             Field[] fields = ReflectionUtil.getFields(_class);
             for(int i=0;i<fields.length;i++){
                 if(ReflectionUtil.isIdField(fields[i])){

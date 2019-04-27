@@ -68,7 +68,7 @@ public class AbstractCondition<T> implements Condition<T>{
 
     public AbstractCondition(Class<T> _class, DataSource dataSource) {
         this._class = _class;
-        this.tableName = "`"+SQLUtil.classTableMap.get(_class)+"`";
+        this.tableName = "`"+SQLUtil.classTableMap.get(_class.getName())+"`";
         this.dataSource = dataSource;
     }
 
@@ -163,6 +163,47 @@ public class AbstractCondition<T> implements Condition<T>{
         }else{
             whereBuilder.append("(t.`"+StringUtil.Camel2Underline(property)+"` "+operator+" ?) and ");
             parameterList.add(value);
+        }
+        return this;
+    }
+
+    @Override
+    public Condition addInstanceQuery(Object instance) {
+        addInstanceQuery(instance,true);
+        return this;
+    }
+
+    @Override
+    public Condition addInstanceQuery(Object instance, boolean userBasicDataType) {
+        Field[] fields = ReflectionUtil.getFields(instance.getClass());
+        for(Field field:fields){
+            //判断是否是基本数据类型
+            if(field.getType().isPrimitive()&&!userBasicDataType){
+                continue;
+            }
+            try {
+                switch (field.getType().getSimpleName().toLowerCase()) {
+                    case "int": {
+                    }
+                    case "integer": {
+                        addQuery(field.getName(),field.getInt(instance));
+                    }break;
+                    case "long": {
+                        //排除id为0的情况
+                        if(!ReflectionUtil.isIdField(field)||field.getLong(instance)!=0){
+                            addQuery(field.getName(),field.getLong(instance));
+                        }
+                    }break;
+                    case "boolean": {
+                        addQuery(field.getName(),field.getBoolean(instance));
+                    }break;
+                    default: {
+                        addQuery(field.getName(),field.get(instance));
+                    }
+                }
+            }catch (Exception e){
+                e.printStackTrace();
+            }
         }
         return this;
     }
@@ -525,7 +566,7 @@ public class AbstractCondition<T> implements Condition<T>{
     public List<T> getValueList(Class<T> _class, String column) {
         assureDone();
         sqlBuilder.setLength(0);
-        sqlBuilder.append("select "+distinct+" "+(columnBuilder.length()>0?columnBuilder.toString():"t.`"+column+"`")+" from "+tableName+" as t ");
+        sqlBuilder.append("select "+distinct+" "+"t.`"+StringUtil.Camel2Underline(column)+"` from "+tableName+" as t ");
         addJoinTableStatement();
         addWhereStatement();
         sqlBuilder.append(" "+ orderByBuilder.toString()+" "+limit);
@@ -585,7 +626,7 @@ public class AbstractCondition<T> implements Condition<T>{
     /**添加外键关联查询条件*/
     protected void addJoinTableStatement() {
         for (AbstractSubCondition abstractSubCondition : subConditionList) {
-            sqlBuilder.append("join `" + SQLUtil.classTableMap.get(abstractSubCondition._class) + "` as " + abstractSubCondition.tableAliasName + " on t." + StringUtil.Camel2Underline(abstractSubCondition.primaryField) + " = " + StringUtil.Camel2Underline(abstractSubCondition.tableAliasName) + "." + StringUtil.Camel2Underline(abstractSubCondition.joinTableField) + " ");
+            sqlBuilder.append("join `" + SQLUtil.classTableMap.get(abstractSubCondition._class.getName()) + "` as " + abstractSubCondition.tableAliasName + " on t." + StringUtil.Camel2Underline(abstractSubCondition.primaryField) + " = " + StringUtil.Camel2Underline(abstractSubCondition.tableAliasName) + "." + StringUtil.Camel2Underline(abstractSubCondition.joinTableField) + " ");
         }
     }
 

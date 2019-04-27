@@ -79,7 +79,7 @@ public class DAOTest {
         connection.setAutoCommit(false);
         Class[] classes = new Class[]{User.class,Comment.class, PlayList.class, UserPlayList.class, Video.class, PlayHistory.class};
         for(Class c:classes){
-            String tableName = SQLUtil.classTableMap.get(c);
+            String tableName = SQLUtil.classTableMap.get(c.getName());
             if(url.contains("jdbc:mysql")||url.contains("jdbc:h2")){
                 connection.prepareStatement("truncate table `"+tableName+"`;").executeUpdate();
             }else if(url.contains("jdbc:sqlite")){
