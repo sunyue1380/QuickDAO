@@ -2,6 +2,7 @@ package cn.schoolwow.quickdao.condition;
 
 import cn.schoolwow.quickdao.domain.PageVo;
 import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
 
 import java.util.List;
 
@@ -32,6 +33,8 @@ public interface Condition<T> {
     /**添加实体属性
      * @param userBasicDataType 是否使用基本属性类型进行查询*/
     Condition addInstanceQuery(Object instance,boolean userBasicDataType);
+    /**添加自定义查询条件*/
+    Condition addQuery(JSONObject queryCondition);
     /**添加更新字段*/
     Condition addUpdate(String property, Object value);
     /**添加聚合字段
@@ -63,6 +66,9 @@ public interface Condition<T> {
     long delete();
     List<T> getList();
     PageVo<T> getPagingList();
+    /**获取分页列表
+     * @param composit 是否返回复杂对象信息*/
+    PageVo<T> getPagingList(boolean composit);
     /**获取复合列表(即返回关联表字段)*/
     List<T> getCompositList();
     JSONArray getCompositArray();

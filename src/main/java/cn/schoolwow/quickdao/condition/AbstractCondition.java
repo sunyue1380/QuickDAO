@@ -209,6 +209,59 @@ public class AbstractCondition<T> implements Condition<T>{
     }
 
     @Override
+    public Condition addQuery(JSONObject queryCondition) {
+        Field[] fields = ReflectionUtil.getFields(_class);
+        for(Field field:fields){
+            if(queryCondition.containsKey(field.getName())){
+                addQuery(field.getName(),queryCondition.get(field.getName()));
+            }
+            if(queryCondition.containsKey(field.getName()+"Start")){
+                addQuery(field.getName(),">=",queryCondition.get(field.getName()+"Start"));
+            }
+            if(queryCondition.containsKey(field.getName()+"End")){
+                addQuery(field.getName(),"<=",queryCondition.get(field.getName()+"End"));
+            }
+            if(queryCondition.containsKey(field.getName()+"IN")){
+                addInQuery(field.getName(),queryCondition.getJSONArray(field.getName()+"IN"));
+            }
+            if(queryCondition.containsKey(field.getName()+"NOTNULL")){
+                addNotNullQuery(field.getName());
+            }
+            if(queryCondition.containsKey(field.getName()+"NULL")){
+                addNullQuery(field.getName());
+            }
+            if(queryCondition.containsKey(field.getName()+"NOTEMPTY")){
+                addNotEmptyQuery(field.getName());
+            }
+        }
+        String[] orders = {"_orderBy","_orderByDesc"};
+        for(String order:orders){
+            if(queryCondition.containsKey(order)){
+                if(queryCondition.get(order) instanceof String){
+                    if("_orderBy".equals(order)){
+                        orderBy(queryCondition.getString(order));
+                    }else{
+                        orderByDesc(queryCondition.getString(order));
+                    }
+                }else if(queryCondition.get(order) instanceof String){
+                    JSONArray array = queryCondition.getJSONArray(order);
+                    for(int i=0;i<array.size();i++){
+                        if("_orderBy".equals(order)){
+                            orderBy(queryCondition.getString(order));
+                        }else{
+                            orderByDesc(queryCondition.getString(order));
+                        }
+                    }
+                }
+            }
+        }
+        if(queryCondition.containsKey("_pageNumber")&&queryCondition.containsKey("_pageSize")){
+            page(queryCondition.getInteger("_pageNumber"),queryCondition.getInteger("_pageSize"));
+        }
+        return this;
+    }
+
+    @Override
     public Condition addUpdate(String property, Object value) {
         if(updateParameterList==null){
             updateParameterList = new ArrayList();
@@ -432,14 +485,15 @@ public class AbstractCondition<T> implements Condition<T>{
 
     @Override
     public PageVo<T> getPagingList() {
-        if(pageVo==null){
-            throw new IllegalArgumentException("请先调用page()函数!");
-        }
-        List<T> list = getList();
-        pageVo.setList(list);
-        pageVo.setTotalSize(count());
-        pageVo.setTotalPage((int)(pageVo.getTotalSize()/pageVo.getPageSize())+1);
-        pageVo.setHasMore(pageVo.getCurrentPage()<pageVo.getTotalPage());
+        getPageVo();
+        pageVo.setList(getList());
+        return pageVo;
+    }
+
+    @Override
+    public PageVo<T> getPagingList(boolean composit) {
+        getPageVo();
+        pageVo.setList(getCompositList());
         return pageVo;
     }
 
@@ -499,8 +553,8 @@ public class AbstractCondition<T> implements Condition<T>{
 
                 for(AbstractCondition.AbstractSubCondition subCondition:subConditionList){
                     JSONObject subObject = new JSONObject();
-                    fields = ReflectionUtil.getFields(subCondition._class);
-                    for(Field field:fields){
+                    Field[] subFields = ReflectionUtil.getFields(subCondition._class);
+                    for(Field field:subFields){
                         if(field.getAnnotation(Ignore.class)!=null){
                             continue;
                         }
@@ -621,6 +675,16 @@ public class AbstractCondition<T> implements Condition<T>{
             e.printStackTrace();
             return null;
         }
+    }
+
+    private PageVo<T> getPageVo(){
+        if(pageVo==null){
+            throw new IllegalArgumentException("请先调用page()函数!");
+        }
+        pageVo.setTotalSize(count());
+        pageVo.setTotalPage((int)(pageVo.getTotalSize()/pageVo.getPageSize())+1);
+        pageVo.setHasMore(pageVo.getCurrentPage()<pageVo.getTotalPage());
+        return pageVo;
     }
 
     /**添加外键关联查询条件*/

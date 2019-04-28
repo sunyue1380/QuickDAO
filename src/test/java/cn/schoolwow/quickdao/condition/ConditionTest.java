@@ -10,6 +10,7 @@ import cn.schoolwow.quickdao.entity.user.User;
 import cn.schoolwow.quickdao.entity.user.UserPlayList;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
 import com.alibaba.fastjson.serializer.SerializeConfig;
 import com.alibaba.fastjson.serializer.SerializerFeature;
 import com.alibaba.fastjson.support.config.FastJsonConfig;
@@ -26,6 +27,23 @@ public class ConditionTest extends DAOTest{
 
     public ConditionTest(DAO dao, DataSource dataSource) {
         super(dao, dataSource);
+    }
+
+    @Test
+    public void testAddJSONObjectQuery() throws Exception {
+        JSONObject queryCondition = new JSONObject();
+        queryCondition.put("username","@");
+        queryCondition.put("typeStart",1);
+        queryCondition.put("tokenIN",new String[]{"7a746f17a9bf4903b09b617135152c71","9204d99472c04ce7abf1bcb9773b0d49"});
+        queryCondition.put("lastLoginNOTNULL",null);
+        queryCondition.put("_orderByDesc","uid");
+        queryCondition.put("_pageNumber",1);
+        queryCondition.put("_pageSize",10);
+        PageVo<User> userPageVo = dao.query(User.class)
+                .addQuery(queryCondition)
+                .getPagingList();
+        logger.info("[测试查询功能]查询结果:{}",JSON.toJSONString(userPageVo));
+        Assert.assertTrue(userPageVo.getTotalSize()==2);
     }
 
     @Test
@@ -121,6 +139,17 @@ public class ConditionTest extends DAOTest{
                 .getPagingList();
         logger.info("[测试查询功能]查询结果:{}", JSON.toJSONString(pagingList));
         Assert.assertTrue(pagingList.getList().size()==2);
+    }
+
+    @Test
+    public void testPagingListCompositQuery() throws Exception {
+        PageVo<User> pagingList = dao.query(Video.class)
+                .joinTable(PlayList.class,"playlistId","id")
+                .done()
+                .page(1,10)
+                .getPagingList(true);
+        logger.info("[测试查询功能]查询结果:{}", JSON.toJSONString(pagingList));
+        Assert.assertTrue(pagingList.getList().size()>0);
     }
 
     @Test
