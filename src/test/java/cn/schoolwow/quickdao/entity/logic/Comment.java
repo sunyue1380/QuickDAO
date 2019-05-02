@@ -1,6 +1,6 @@
 package cn.schoolwow.quickdao.entity.logic;
 
-import cn.schoolwow.quickdao.annotation.Id;
+import cn.schoolwow.quickdao.annotation.ForeignKey;
 
 import java.util.Date;
 
@@ -16,6 +16,7 @@ public class Comment {
   /** 评论内容 */
   private String content;
   /** 视频id */
+  @ForeignKey(table = Video.class,field = "id")
   private long videoId;
 
   public long getId() {

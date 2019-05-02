@@ -7,6 +7,7 @@ import cn.schoolwow.quickdao.entity.logic.PlayHistory;
 import cn.schoolwow.quickdao.entity.logic.PlayList;
 import cn.schoolwow.quickdao.entity.logic.Video;
 import cn.schoolwow.quickdao.entity.user.User;
+import cn.schoolwow.quickdao.entity.user.UserFollow;
 import cn.schoolwow.quickdao.entity.user.UserPlayList;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
@@ -19,6 +20,7 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.jws.soap.SOAPBinding;
 import javax.sql.DataSource;
 import java.util.List;
 
@@ -27,6 +29,37 @@ public class ConditionTest extends DAOTest{
 
     public ConditionTest(DAO dao, DataSource dataSource) {
         super(dao, dataSource);
+    }
+
+    @Test
+    public void testSubCondition() throws Exception {
+        List<UserFollow> userFollowList = dao.query(UserFollow.class)
+                .joinTable(User.class,"userId","uid","user")
+                .addInQuery("uid",new Long[]{1l})
+                .done()
+                .joinTable(User.class,"followerId","uid","followUser")
+                .addInQuery("uid",new Long[]{2l})
+                .done()
+                .distinct()
+                .page(1,10)
+                .getCompositList();
+        logger.info("[测试外键关联查询]结果:{}",JSON.toJSONString(userFollowList));
+        Assert.assertTrue(userFollowList.size()==1);
+    }
+
+    @Test
+    public void testClone() throws Exception {
+        Condition<User> condition = dao.query(User.class)
+                .addQuery("username","@")
+                .addQuery("type",">=",1)
+                .addInQuery("token",new String[]{"7a746f17a9bf4903b09b617135152c71","9204d99472c04ce7abf1bcb9773b0d49"})
+                .addNotNullQuery("lastLogin")
+                .orderByDesc("uid")
+                .page(1,10);
+
+        Condition<User> cloneCondition = condition.clone();
+        logger.info("[测试克隆功能]{}",cloneCondition);
+        Assert.assertTrue(condition.count()==cloneCondition.count());
     }
 
     @Test
@@ -147,7 +180,7 @@ public class ConditionTest extends DAOTest{
                 .joinTable(PlayList.class,"playlistId","id")
                 .done()
                 .page(1,10)
-                .getPagingList(true);
+                .getPagingCompositList();
         logger.info("[测试查询功能]查询结果:{}", JSON.toJSONString(pagingList));
         Assert.assertTrue(pagingList.getList().size()>0);
     }
@@ -203,7 +236,7 @@ public class ConditionTest extends DAOTest{
                 .done()
                 .getCompositList();
         logger.info("[查询视频id为1的带播单信息的视频信息]{}",JSON.toJSONString(videoList));
-        Assert.assertTrue(videoList.get(0).getPlayList()!=null);
+        Assert.assertTrue(videoList.get(0).getPlaylistId()>0);
     }
 
     @Test
@@ -215,8 +248,7 @@ public class ConditionTest extends DAOTest{
                 .getCompositArray();
         logger.info("[查询视频id为1的带播单信息的视频信息]{}",array.toJSONString());
         List<Video> videoList = array.toJavaList(Video.class);
-        System.out.println(videoList);
-        System.out.println(videoList.get(0).getPlayList());
+        System.out.println(JSON.toJSONString(videoList));
     }
 
     @Test

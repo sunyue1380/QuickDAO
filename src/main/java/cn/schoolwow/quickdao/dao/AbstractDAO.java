@@ -1,10 +1,15 @@
 package cn.schoolwow.quickdao.dao;
 
+import cn.schoolwow.quickdao.QuickDAO;
 import cn.schoolwow.quickdao.annotation.*;
 import cn.schoolwow.quickdao.condition.AbstractCondition;
 import cn.schoolwow.quickdao.condition.Condition;
 import cn.schoolwow.quickdao.condition.SqliteCondition;
-import cn.schoolwow.quickdao.util.*;
+import cn.schoolwow.quickdao.domain.QuickDAOConfig;
+import cn.schoolwow.quickdao.util.ReflectionUtil;
+import cn.schoolwow.quickdao.util.SQLUtil;
+import cn.schoolwow.quickdao.util.StringUtil;
+import cn.schoolwow.quickdao.util.ValidateUtil;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
@@ -19,18 +24,16 @@ import java.net.JarURLConnection;
 import java.net.URL;
 import java.sql.*;
 import java.util.*;
-import java.util.function.Predicate;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public abstract class AbstractDAO implements DAO {
     Logger logger = LoggerFactory.getLogger(AbstractDAO.class);
     /**字段映射*/
     protected Map<String, String> fieldMapping = new HashMap<String, String>();
-    private DataSource dataSource;
+    protected DataSource dataSource;
     private Connection connection;
     private boolean startTranscation = false;
 
@@ -58,9 +61,6 @@ public abstract class AbstractDAO implements DAO {
 
     /**提取各个数据库产品的SQL差异部分的语法*/
     protected abstract String getSyntax(Syntax syntax,Object... values);
-
-    /**获取唯一约束SQL语句*/
-    protected abstract String getUniqueStatement(String tableName,List<String> columns);
 
     @Override
     public <T> T fetch(Class<T> _class, long id){
@@ -418,13 +418,15 @@ public abstract class AbstractDAO implements DAO {
     }
 
     /**获取实体类信息同时过滤*/
-    protected JSONArray getEntityInfo(String packageName,Predicate<Class> predicate) throws IOException, ClassNotFoundException {
+    protected JSONArray getEntityInfo() throws IOException, ClassNotFoundException {
+        String packageName = QuickDAOConfig.packageName;
         String packageNamePath = packageName.replace(".", "/");
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         URL url = classLoader.getResource(packageNamePath);
         List<Class> classList = new ArrayList<>();
         if("file".equals(url.getProtocol())){
             File file = new File(url.getFile());
+            //TODO 对于有空格或者中文路径会无法识别
             logger.info("[类文件路径]{}",file.getAbsolutePath());
             if(!file.isDirectory()){
                 throw new IllegalArgumentException("包名不是合法的文件夹!");
@@ -464,35 +466,65 @@ public abstract class AbstractDAO implements DAO {
             }
         }
         if (classList.size() == 0) {
+            logger.warn("[扫描实体类信息为空]包名:{}",QuickDAOConfig.packageName);
             return new JSONArray();
         }
-        //过滤类名或者包名
-        if(predicate!=null){
-            classList = classList.stream().filter(predicate).collect(Collectors.toList());
+        Stream<Class> stream = classList.stream().filter((_class)->{
+            boolean result = true;
+            //根据类过滤
+            if(QuickDAOConfig.ignoreClassList!=null){
+                if(QuickDAOConfig.ignoreClassList.contains(_class)){
+                    logger.warn("[忽略类名]类名:{}!",_class.getName());
+                    result = false;
+                }
+            }
+            //根据包名过滤
+            if(QuickDAOConfig.ignorePackageNameList!=null){
+                for(String ignorePackageName:QuickDAOConfig.ignorePackageNameList){
+                    if(_class.getName().contains(ignorePackageName)){
+                        logger.warn("[忽略包名]包名:{}类名:{}",ignorePackageName,_class.getName());
+                        result = false;
+                    }
+                }
+            }
+            return result;
+        });
+        if(QuickDAOConfig.predicate!=null){
+            stream.filter(QuickDAOConfig.predicate);
         }
+        classList = stream.collect(Collectors.toList());
         JSONArray entityList = new JSONArray();
+        for (Class c : classList) {
+            String tableName = null;
+            if((packageName.length()+c.getSimpleName().length()+1)==c.getName().length()){
+                //支持实体包多个文件夹
+                tableName = StringUtil.Camel2Underline(c.getSimpleName());
+            }else{
+                String prefix = c.getName().substring(packageName.length()+1,c.getName().lastIndexOf(".")).replace(".","_");
+                tableName = prefix+"@"+StringUtil.Camel2Underline(c.getSimpleName());
+            }
+            SQLUtil.classTableMap.put(c.getName(),tableName);
+        }
         for (Class c : classList) {
             JSONObject entity = new JSONObject();
             entity.put("ignore", c.getDeclaredAnnotation(Ignore.class) != null);
-            if((packageName.length()+c.getSimpleName().length()+1)==c.getName().length()){
-                //支持实体包多个文件夹
-                entity.put("tableName",StringUtil.Camel2Underline(c.getSimpleName()));
-            }else{
-                String prefix = c.getName().substring(packageName.length()+1,c.getName().lastIndexOf(".")).replace(".","_");
-                entity.put("tableName",prefix+"@"+StringUtil.Camel2Underline(c.getSimpleName()));
+            if(entity.getBoolean("ignore")){
+                logger.debug("[忽略实体类=>{}]该类被@Ignore注解修饰,将跳过该实体类!",c.getName());
+                continue;
             }
-            SQLUtil.classTableMap.put(c.getName(),entity.getString("tableName"));
+            entity.put("tableName",SQLUtil.classTableMap.get(c.getName()));
             entity.put("className",c.getSimpleName());
-            //添加表属性
-            Field[] fields = c.getDeclaredFields();
-            Field.setAccessible(fields, true);
+            Field[] fields = ReflectionUtil.getFields(c);
             JSONArray properties = new JSONArray();
+            JSONArray uniqueKeyProperties = new JSONArray();
+            JSONArray foreignKeyProperties = new JSONArray();
             for (int i = 0; i < fields.length; i++) {
                 JSONObject property = new JSONObject();
                 //Ignore注解或者成员属性为指定包下面的实体类均要忽略
                 boolean ignore = fields[i].getType().getName().contains(packageName)||fields[i].getDeclaredAnnotation(Ignore.class) != null;
                 property.put("ignore",ignore);
                 property.put("column", StringUtil.Camel2Underline(fields[i].getName()));
+                property.put("name", fields[i].getName());
                 property.put("type", fields[i].getType().getSimpleName().toLowerCase());
                 property.put("unique", fields[i].getDeclaredAnnotation(Unique.class) != null);
                 property.put("notNull", fields[i].getDeclaredAnnotation(NotNull.class) != null);
@@ -515,15 +547,31 @@ public abstract class AbstractDAO implements DAO {
                 if(fields[i].getDeclaredAnnotation(Comment.class)!=null){
                     property.put("comment",fields[i].getDeclaredAnnotation(Comment.class).value());
                 }
+                if(property.getBoolean("unique")){
+                    uniqueKeyProperties.add(property.getString("column"));
+                }
+                ForeignKey foreignKey = fields[i].getDeclaredAnnotation(ForeignKey.class);
+                if(foreignKey!=null){
+                    String operation = foreignKey.foreignKeyOption().getOperation();
+                    property.put("foreignKey","`"+SQLUtil.classTableMap.get(foreignKey.table().getName())+"`(`"+foreignKey.field()+"`) ON DELETE "+operation+" ON UPDATE "+operation);
+                    property.put("foreignKeyName","FK_"+entity.getString("tableName")+"_"+foreignKey.field()+"_"+SQLUtil.classTableMap.get(foreignKey.table().getName())+"_"+property.getString("name"));
+                    foreignKeyProperties.add(property);
+                }
                 properties.add(property);
             }
             entity.put("properties", properties);
+            entity.put("uniqueKeyProperties", uniqueKeyProperties);
+            entity.put("foreignKeyProperties", foreignKeyProperties);
             entityList.add(entity);
         }
+        logger.debug("[获取实体信息]实体类个数:{}",entityList.size());
         return entityList;
     }
 
-    protected JSONArray getDatabaseInfo(Connection connection) throws SQLException {
+    /**获取数据库信息*/
+    protected JSONArray getDatabaseInfo() throws SQLException {
+        Connection connection = dataSource.getConnection();
+        connection.setAutoCommit(false);
         PreparedStatement tablePs = connection.prepareStatement("show tables;");
         ResultSet tableRs = tablePs.executeQuery();
         //(1)获取所有表
@@ -558,148 +606,139 @@ public abstract class AbstractDAO implements DAO {
         return entityList;
     }
 
-    public void autoBuildDatabase(String packageName){
-        Predicate predicate = null;
-        autoBuildDatabase(packageName,predicate);
-    }
-
-    public void autoBuildDatabase(String packageName,String regexPattern){
-        if(ValidateUtil.isEmpty(regexPattern)){
-            throw new IllegalArgumentException("regexPattern不能为空!");
-        }
-        Pattern pattern = Pattern.compile(regexPattern);
-        Predicate<Class> predicate = (c) ->{
-            Matcher m = pattern.matcher(c.getName());
-            if(m.matches()){
-                return false;
-            }
-            return true;
-        };
-        logger.info("[根据正则过滤实体类]{}",regexPattern);
-        autoBuildDatabase(packageName,predicate);
-    }
-
-    public void autoBuildDatabase(String packageName,String[] excludePackageNames){
-        if(ValidateUtil.isEmpty(excludePackageNames)){
-            throw new IllegalArgumentException("excludePackageNames不能为空!");
-        }
-        Predicate<Class> predicate = (c) ->{
-            boolean result = true;
-            for(String excludePackageName:excludePackageNames){
-                if(c.getName().contains(excludePackageName)){
-                    result = false;
-                    break;
-                }
-            }
-            return result;
-        };
-        logger.info("[根据包名排除]{}", JSON.toJSON(excludePackageNames));
-        autoBuildDatabase(packageName,predicate);
-    }
-
-    public void autoBuildDatabase(String packageName, Predicate predicate){
-        logger.trace("[自动建表开始执行]");
-        if(ValidateUtil.isEmpty(packageName)){
-            throw new IllegalArgumentException("packageName不能为空!");
-        }
+    public void autoBuildDatabase(){
         try {
-            JSONArray dbEntityList = getDatabaseInfo(dataSource.getConnection());
-            logger.debug("[获取数据库信息]{}",dbEntityList.size());
-            JSONArray entityList = getEntityInfo(packageName,predicate);
+            JSONArray entityList = getEntityInfo();
             logger.debug("[获取实体信息]{}",entityList.size());
+            JSONArray dbEntityList = getDatabaseInfo();
+            logger.debug("[获取数据库信息]数据库表个数:{}",dbEntityList.size());
+
             Connection connection = dataSource.getConnection();
             connection.setAutoCommit(false);
-
-            //判断表是否存在,存在则判断字段,不存在则创建
-            for(int i=0;i<entityList.size();i++){
-                //忽略注解为ignore的类
-                JSONObject source = entityList.getJSONObject(i);
-                String className = source.getString("className");
-                if(source.getBoolean("ignore")){
-                    logger.debug("[忽略实体类{}]该实体类被Ignore注解修饰!",className);
-                    continue;
-                }
-                String tableName = source.getString("tableName");
-                JSONObject target = getValue(dbEntityList,"tableName",tableName);
-
-                List<String> uniqueColumnList = new ArrayList<>();
-                if(target==null){
+            for (int i = 0; i < entityList.size(); i++) {
+                JSONObject entity = entityList.getJSONObject(i);
+                String tableName = entity.getString("tableName");
+                JSONObject dbEntity = getValue(dbEntityList,"tableName",tableName);
+                if (dbEntity == null) {
                     //新增数据库表
-                    StringBuilder createTableBuilder = new StringBuilder("create table `"+tableName+"`(");
-                    JSONArray properties = source.getJSONArray("properties");
-                    for(int j=0;j<properties.size();j++){
-                        JSONObject property = properties.getJSONObject(j);
-                        if(property.getBoolean("ignore")){
-                            continue;
-                        }
-                        createTableBuilder.append("`"+property.getString("column")+"` "+property.getString("columnType"));
-                        if(property.getBoolean("id")){
-                            //主键新增
-                            createTableBuilder.append(" primary key "+getSyntax(Syntax.AutoIncrement));
-                        }else{
-                            if(property.containsKey("default")){
-                                createTableBuilder.append(" default "+property.getString("default"));
-                            }
-                            if(property.getBoolean("notNull")){
-                                createTableBuilder.append(" not null ");
-                            }
-                            if(property.getBoolean("unique")){
-                                uniqueColumnList.add(property.getString("column"));
-                            }
-                        }
-                        createTableBuilder.append(" "+getSyntax(Syntax.Comment,property.getString("comment")));
-                        createTableBuilder.append(",");
-                    }
-                    createTableBuilder.deleteCharAt(createTableBuilder.length()-1);
-                    createTableBuilder.append(")");
-                    String sql = createTableBuilder.toString().replaceAll("\\s+"," ");
-                    logger.debug("[生成新表{}=>{}]执行sql:{}",className,tableName,sql);
-                    connection.prepareStatement(sql).executeUpdate();
-                }else {
+                    createTable(entity,connection);
+                } else {
                     //对比字段
-                    JSONArray sourceProperties = source.getJSONArray("properties");
-                    JSONArray targetProperties = target.getJSONArray("properties");
-                    addNewColumn(connection, tableName, uniqueColumnList, sourceProperties, targetProperties);
+                    compareEntityDatabase(entity,dbEntity,connection);
                 }
-                if(uniqueColumnList.size()>0){
-                    String uniqueSQL = getUniqueStatement(tableName,uniqueColumnList);
-                    logger.debug("[为表{}生成唯一约束]执行sql:{}",tableName,uniqueSQL);
-                    connection.prepareStatement(uniqueSQL).executeUpdate();
-                }
+            }
+            if(QuickDAOConfig.openForeignKey){
+                createForeignKey(entityList,connection);
             }
             connection.commit();
             connection.setAutoCommit(true);
             connection.close();
-            logger.trace("[自动建表完成]");
         }catch (Exception e){
             e.printStackTrace();
         }
     }
 
-    protected void addNewColumn(Connection connection, String tableName, List<String> uniqueColumnList, JSONArray sourceProperties, JSONArray targetProperties) throws SQLException {
+    /**创建新表*/
+    protected void createTable(JSONObject entity,Connection connection) throws SQLException {
+        String tableName = entity.getString("tableName");
+        StringBuilder createTableBuilder = new StringBuilder("create table `" + tableName + "`(");
+        JSONArray properties = entity.getJSONArray("properties");
+        for (int j = 0; j < properties.size(); j++) {
+            JSONObject property = properties.getJSONObject(j);
+            if (property.getBoolean("ignore")) {
+                continue;
+            }
+            createTableBuilder.append("`" + property.getString("column") + "` " + property.getString("columnType"));
+            if (property.getBoolean("id")) {
+                //主键新增
+                createTableBuilder.append(" primary key " + getSyntax(Syntax.AutoIncrement));
+            } else {
+                if (property.containsKey("default")) {
+                    createTableBuilder.append(" default " + property.getString("default"));
+                }
+                if (property.getBoolean("notNull")) {
+                    createTableBuilder.append(" not null ");
+                }
+            }
+            createTableBuilder.append(" " + getSyntax(Syntax.Comment, property.getString("comment")));
+            createTableBuilder.append(",");
+        }
+        createTableBuilder.deleteCharAt(createTableBuilder.length() - 1);
+        createTableBuilder.append(")");
+        String sql = createTableBuilder.toString().replaceAll("\\s+", " ");
+        logger.debug("[生成新表{}=>{}]执行sql:{}", entity.getString("className"), tableName, sql);
+        connection.prepareStatement(sql).executeUpdate();
+        createUniqueKey(entity,connection);
+    }
+
+    /**对比实体类和数据表*/
+    protected void compareEntityDatabase(JSONObject entity,JSONObject dbEntity,Connection connection) throws SQLException {
+        String tableName = entity.getString("tableName");
+        JSONArray sourceProperties = entity.getJSONArray("properties");
+        JSONArray dbEntityProperties = dbEntity.getJSONArray("properties");
         for (int j = 0; j < sourceProperties.size(); j++) {
             JSONObject sourceProperty = sourceProperties.getJSONObject(j);
             if(sourceProperty.getBoolean("ignore")){
                 continue;
             }
-            JSONObject targetProperty = getValue(targetProperties, "column", sourceProperty.getString("column"));
-            if (targetProperty == null) {
-                //新增属性
-                String column = sourceProperty.getString("column");
-                String columnType = sourceProperty.containsKey("columnType") ? sourceProperty.getString("columnType") : fieldMapping.get(sourceProperty.getString("type"));
+            String column = sourceProperty.getString("column");
+            JSONObject dbProperty = getValue(dbEntityProperties,"column",column);
+            if (dbProperty == null) {
+                String columnType = sourceProperty.getString("columnType");
 
-                StringBuilder builder = new StringBuilder();
-                builder.append("alter table `" + tableName + "` add column " + "`" + column + "` " + columnType+" ");
+                StringBuilder addColumnBuilder = new StringBuilder();
+                addColumnBuilder.append("alter table `" + tableName + "` add column " + "`" + column + "` " + columnType+" ");
                 if (sourceProperty.containsKey("default")) {
-                    builder.append(" default " + sourceProperty.getString("default"));
+                    addColumnBuilder.append(" default " + sourceProperty.getString("default"));
                 }
-                builder.append(" "+getSyntax(Syntax.Comment,sourceProperty.getString("comment"))+";");
-                String sql = builder.toString().replaceAll("\\s+", " ");
+                addColumnBuilder.append(" "+getSyntax(Syntax.Comment,sourceProperty.getString("comment")));
+                String foreignKey = sourceProperty.getString("foreignKey");
+                if(foreignKey!=null){
+                    addColumnBuilder.append(",constraint `"+sourceProperty.containsKey("foreignKeyName")+"` foreign key(`"+column+"`) references "+foreignKey);
+                }
+                addColumnBuilder.append(";");
+                String sql = addColumnBuilder.toString().replaceAll("\\s+", " ");
                 logger.debug("[添加新列]表:{},列名:{},执行SQL:{}",tableName,column+"("+columnType+")",sql);
                 connection.prepareStatement(sql).executeUpdate();
-                if (sourceProperty.getBoolean("unique")) {
-                    uniqueColumnList.add(column);
+                if(sourceProperty.getBoolean("unique")){
+                    createUniqueKey(entity,connection);
                 }
+            }
+        }
+    }
+
+    /**创建唯一索引*/
+    protected void createUniqueKey(JSONObject entity,Connection connection) throws SQLException {
+        String tableName = entity.getString("tableName");
+        StringBuilder uniqueKeyBuilder = new StringBuilder("alter table `"+tableName+"` add unique index `"+tableName+"_unique_index` (");
+        JSONArray uniqueKeyProperties = entity.getJSONArray("uniqueKeyProperties");
+        for(int i=0;i<uniqueKeyProperties.size();i++){
+            uniqueKeyBuilder.append("`"+uniqueKeyProperties.getString(i)+"`,");
+        }
+        uniqueKeyBuilder.deleteCharAt(uniqueKeyBuilder.length()-1);
+        uniqueKeyBuilder.append(");");
+        String uniqueKeySQL = uniqueKeyBuilder.toString().replaceAll("\\s+", " ");
+        logger.debug("[添加唯一性约束]表:{},执行SQL:{}",tableName,uniqueKeySQL);
+        connection.prepareStatement(uniqueKeySQL).executeUpdate();
+    }
+
+    /**创建外键约束*/
+    protected void createForeignKey(JSONArray entityList,Connection connection) throws SQLException {
+        for(int i=0;i<entityList.size();i++) {
+            JSONObject source = entityList.getJSONObject(i);
+            JSONArray foreignKeyProperties = source.getJSONArray("foreignKeyProperties");
+            for(int j=0;j<foreignKeyProperties.size();j++){
+                JSONObject property = foreignKeyProperties.getJSONObject(j);
+                String foreignKeyName = property.getString("foreignKeyName");
+                ResultSet resultSet = connection.prepareStatement("SELECT count(1) FROM information_schema.KEY_COLUMN_USAGE WHERE CONSTRAINT_NAME='"+foreignKeyName+"'").executeQuery();
+                if(resultSet.next()){
+                    if(resultSet.getInt(1)==0){
+                        String foreignKeySQL = "alter table `"+source.getString("tableName")+"` add constraint `"+foreignKeyName+"` foreign key(`"+property.getString("column")+"`) references "+property.getString("foreignKey");
+                        logger.info("[生成外键约束=>{}]执行SQL:{}",foreignKeyName,foreignKeySQL);
+                        connection.prepareStatement(foreignKeySQL).executeUpdate();
+                    }
+                }
+                resultSet.close();
             }
         }
     }

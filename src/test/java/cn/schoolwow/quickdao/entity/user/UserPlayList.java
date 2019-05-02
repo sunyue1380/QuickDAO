@@ -1,15 +1,19 @@
 package cn.schoolwow.quickdao.entity.user;
 
+import cn.schoolwow.quickdao.annotation.ForeignKey;
 import cn.schoolwow.quickdao.annotation.Unique;
+import cn.schoolwow.quickdao.entity.logic.PlayList;
 
 public class UserPlayList {
     /** 唯一标识 */
     private long id;
     /** 用户id */
     @Unique
+    @ForeignKey(table = User.class,field = "uid")
     private long userId;
     /** 播单id */
     @Unique
+    @ForeignKey(table = PlayList.class,field = "id")
     private long playlistId;
 
     public long getId() {

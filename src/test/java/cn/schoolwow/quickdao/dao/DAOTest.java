@@ -1,11 +1,13 @@
 package cn.schoolwow.quickdao.dao;
 
 import cn.schoolwow.quickdao.QuickDAO;
+import cn.schoolwow.quickdao.entity.WatchLater;
 import cn.schoolwow.quickdao.entity.logic.Comment;
 import cn.schoolwow.quickdao.entity.logic.PlayHistory;
 import cn.schoolwow.quickdao.entity.logic.PlayList;
 import cn.schoolwow.quickdao.entity.logic.Video;
 import cn.schoolwow.quickdao.entity.user.User;
+import cn.schoolwow.quickdao.entity.user.UserFollow;
 import cn.schoolwow.quickdao.entity.user.UserPlayList;
 import cn.schoolwow.quickdao.util.SQLUtil;
 import cn.schoolwow.quickdao.util.ValidateUtil;
@@ -59,6 +61,8 @@ public class DAOTest {
         for(int i=0;i<dataSources.length;i++){
             data[i][0] = QuickDAO.newInstance().dataSource(dataSources[i])
                     .packageName(packageName)
+//                    .ignoreClass(WatchLater.class)
+//                    .ignorePackageName("cn.schoolwow.quickdao.entity.logic")
                     .build();
             data[i][1] = dataSources[i];
         };
@@ -74,10 +78,17 @@ public class DAOTest {
     public void before() throws SQLException, FileNotFoundException {
         //TODO 数据库表存在时才执行
         Connection connection = dataSource.getConnection();
+
+        //禁用外键约束
         String url = connection.getMetaData().getURL();
+        if(url.contains("jdbc:mysql")||url.contains("jdbc:h2")){
+            connection.prepareStatement("SET foreign_key_checks = 0;").executeUpdate();
+        }else if(url.contains("jdbc:sqlite")){
+            connection.prepareStatement("PRAGMA foreign_keys = OFF;").executeUpdate();
+        }
         logger.info("[数据源地址]{}",url);
         connection.setAutoCommit(false);
-        Class[] classes = new Class[]{User.class,Comment.class, PlayList.class, UserPlayList.class, Video.class, PlayHistory.class};
+        Class[] classes = new Class[]{User.class,Comment.class, PlayList.class, UserPlayList.class, Video.class, PlayHistory.class, UserFollow.class};
         for(Class c:classes){
             String tableName = SQLUtil.classTableMap.get(c.getName());
             if(url.contains("jdbc:mysql")||url.contains("jdbc:h2")){
@@ -104,6 +115,12 @@ public class DAOTest {
             }
         }
         scanner.close();
+        //启用外键约束
+        if(url.contains("jdbc:mysql")||url.contains("jdbc:h2")){
+            connection.prepareStatement("SET foreign_key_checks = 1;").executeUpdate();
+        }else if(url.contains("jdbc:sqlite")){
+            connection.prepareStatement("PRAGMA foreign_keys = ON;").executeUpdate();
+        }
         connection.commit();
         connection.close();
     }
@@ -227,7 +244,7 @@ public class DAOTest {
         dao.endTransaction();
         long count = dao.query(UserPlayList.class).addQuery("userId",1).addQuery("playlistId",1).count();
         logger.info("[检查用户播单订阅记录]count:{}",count);
-        Assert.assertTrue(count==1);
+        Assert.assertTrue(count==2);
 
         //开启事务插入一条订阅记录后回滚
         dao.startTransaction();

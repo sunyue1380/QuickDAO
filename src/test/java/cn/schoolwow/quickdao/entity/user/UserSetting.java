@@ -1,6 +1,7 @@
 package cn.schoolwow.quickdao.entity.user;
 
 import cn.schoolwow.quickdao.annotation.ColumnType;
+import cn.schoolwow.quickdao.annotation.ForeignKey;
 import cn.schoolwow.quickdao.annotation.NotNull;
 import cn.schoolwow.quickdao.annotation.Unique;
 
@@ -8,6 +9,7 @@ public class UserSetting {
     private long id;
     @Unique
     @NotNull
+    @ForeignKey(table = User.class,field = "uid")
     private long userId;
     @ColumnType("varchar(1024)")
     private String setting;

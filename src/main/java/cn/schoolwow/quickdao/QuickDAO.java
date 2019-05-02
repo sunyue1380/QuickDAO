@@ -1,6 +1,7 @@
 package cn.schoolwow.quickdao;
 
 import cn.schoolwow.quickdao.dao.*;
+import cn.schoolwow.quickdao.domain.QuickDAOConfig;
 import cn.schoolwow.quickdao.util.ReflectionUtil;
 import cn.schoolwow.quickdao.util.ValidateUtil;
 import com.alibaba.fastjson.JSON;
@@ -9,6 +10,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -22,55 +24,57 @@ public class QuickDAO {
         driverMapping.put("jdbc:mysql", MySQLDAO.class);
     }
 
-    private DataSource dataSource;
-    private String packageName;
-    private String regexPattern;
-    private String[] excludePackageNames;
-    private Predicate<Class> predicate;
-
     public static QuickDAO newInstance(){
         return new QuickDAO();
     }
 
     public QuickDAO dataSource(DataSource dataSource){
-        this.dataSource = dataSource;
+        QuickDAOConfig.dataSource = dataSource;
         return this;
     }
     public QuickDAO packageName(String packageName){
-        this.packageName = packageName;
-        logger.debug("[设置实体类包]{}",packageName);
+        QuickDAOConfig.packageName = packageName;
         return this;
     }
-    public QuickDAO filter(String regexPattern){
-        this.regexPattern = regexPattern;
-        logger.debug("[过滤包-正则表达式]{}",regexPattern);
+    public QuickDAO ignorePackageName(String ignorePackageName){
+        if(QuickDAOConfig.ignorePackageNameList==null){
+            QuickDAOConfig.ignorePackageNameList = new ArrayList<>();
+        }
+        QuickDAOConfig.ignorePackageNameList.add(ignorePackageName);
         return this;
     }
-    public QuickDAO filter(String[] excludePackageNames){
-        this.excludePackageNames = excludePackageNames;
-        logger.debug("[过滤包-正则表达式]{}", JSON.toJSONString(excludePackageNames));
+    public QuickDAO ignoreClass(Class _class){
+        if(QuickDAOConfig.ignoreClassList==null){
+            QuickDAOConfig.ignoreClassList = new ArrayList<>();
+        }
+        QuickDAOConfig.ignoreClassList.add(_class);
         return this;
     }
     public QuickDAO filter(Predicate<Class> predicate){
-        this.predicate = predicate;
-        logger.debug("[过滤包-函数式接口]{}",predicate);
+        QuickDAOConfig.predicate = predicate;
+        return this;
+    }
+    public QuickDAO foreignKey(boolean openForeignKey){
+        QuickDAOConfig.openForeignKey = openForeignKey;
         return this;
     }
 
     public DAO build() {
-        if(ValidateUtil.isNull(packageName)||ValidateUtil.isNull(dataSource)){
-            throw new IllegalArgumentException("packageName和dataSource不能为空!");
+        if(ValidateUtil.isEmpty(QuickDAOConfig.packageName)){
+            throw new IllegalArgumentException("请设置要扫描的实体类包名!");
         }
-        ReflectionUtil.packageName = packageName;
+        if(ValidateUtil.isNull(QuickDAOConfig.dataSource)){
+            throw new IllegalArgumentException("请设置数据库连接池属性!");
+        }
         AbstractDAO dao = null;
         try {
-            Connection connection = dataSource.getConnection();
+            Connection connection = QuickDAOConfig.dataSource.getConnection();
             String url = connection.getMetaData().getURL();
             logger.info("[数据源地址]{}",url);
             Set<String> keySet = driverMapping.keySet();
             for(String key:keySet){
                 if(url.contains(key)){
-                    dao = (AbstractDAO) driverMapping.get(key).getConstructor(DataSource.class).newInstance(dataSource);
+                    dao = (AbstractDAO) driverMapping.get(key).getConstructor(DataSource.class).newInstance(QuickDAOConfig.dataSource);
                     break;
                 }
             }
@@ -80,16 +84,8 @@ public class QuickDAO {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        //自动建表并返回
-        if(ValidateUtil.isNotEmpty(this.regexPattern)){
-            dao.autoBuildDatabase(packageName,this.regexPattern);
-        }else if(ValidateUtil.isNotEmpty(this.excludePackageNames)){
-            dao.autoBuildDatabase(packageName,excludePackageNames);
-        }else if(ValidateUtil.isNull(this.predicate)){
-            dao.autoBuildDatabase(packageName,predicate);
-        }else{
-            dao.autoBuildDatabase(packageName);
-        }
+        //自动建表
+        dao.autoBuildDatabase();
         return dao;
     }
 }

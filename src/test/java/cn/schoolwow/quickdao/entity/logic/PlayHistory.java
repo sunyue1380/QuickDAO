@@ -1,5 +1,6 @@
 package cn.schoolwow.quickdao.entity.logic;
 
+import cn.schoolwow.quickdao.annotation.ForeignKey;
 import cn.schoolwow.quickdao.annotation.NotNull;
 import cn.schoolwow.quickdao.annotation.Unique;
 import cn.schoolwow.quickdao.entity.user.User;
@@ -16,6 +17,7 @@ public class PlayHistory {
      */
     @NotNull
     @Unique
+    @ForeignKey(table = User.class,field = "uid")
     private long userId;
 
     private User user;
@@ -24,6 +26,7 @@ public class PlayHistory {
      */
     @NotNull
     @Unique
+    @ForeignKey(table = Video.class,field = "id")
     private long videoId;
 
     private Video video;

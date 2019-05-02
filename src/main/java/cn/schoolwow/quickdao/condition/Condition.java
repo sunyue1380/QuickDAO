@@ -50,6 +50,8 @@ public interface Condition<T> {
 //    Condition having(String query);
     /**关联表*/
     <T> SubCondition<T> joinTable(Class<T> _class, String primaryField, String joinTableField);
+    /**关联表*/
+    <T> SubCondition<T> joinTable(Class<T> _class, String primaryField, String joinTableField,String compositField);
 
     /**排序字段(升序)*/
     Condition orderBy(String field);
@@ -66,9 +68,7 @@ public interface Condition<T> {
     long delete();
     List<T> getList();
     PageVo<T> getPagingList();
-    /**获取分页列表
-     * @param composit 是否返回复杂对象信息*/
-    PageVo<T> getPagingList(boolean composit);
+    PageVo<T> getPagingCompositList();
     /**获取复合列表(即返回关联表字段)*/
     List<T> getCompositList();
     JSONArray getCompositArray();
@@ -77,4 +77,8 @@ public interface Condition<T> {
     List<T> getValueList(Class<T> _class, String column);
 
     JSONArray getAggerateList();
+
+    Condition clone() throws CloneNotSupportedException;
+
+    String toString();
 }

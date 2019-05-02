@@ -8,6 +8,8 @@ public interface SubCondition<T> {
     SubCondition addNotEmptyQuery(String field);
     SubCondition addInQuery(String field, Object[] values);
     SubCondition addInQuery(String field, List values);
+    SubCondition addNotInQuery(String field, Object[] values);
+    SubCondition addNotInQuery(String field, List values);
     SubCondition addQuery(String query);
     SubCondition addQuery(String property, Object value);
     SubCondition addQuery(String property, String operator, Object value);

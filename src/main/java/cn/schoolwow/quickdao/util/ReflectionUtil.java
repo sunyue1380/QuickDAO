@@ -2,6 +2,7 @@ package cn.schoolwow.quickdao.util;
 
 import cn.schoolwow.quickdao.annotation.*;
 import cn.schoolwow.quickdao.condition.AbstractCondition;
+import cn.schoolwow.quickdao.domain.QuickDAOConfig;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.fastjson.serializer.SerializeConfig;
@@ -24,17 +25,17 @@ public class ReflectionUtil {
     private static JSONObject sqlCache = new JSONObject();
     /**记录类对应字段数组*/
     private static Map<Class,Field[]> classFieldsCache = new HashMap<>();
+    /**记录类的复杂字段*/
+    private static Map<String,Field[]> classCompositFieldsCache = new HashMap<>();
     /**记录复杂对象对应字段*/
     private static Map<String,Field> compositFieldCache = new HashMap<>();
     /**记录类对应主键字段*/
     public static Map<Class,Field> idCache = new HashMap<>();
-    public static String packageName = null;
 
     /**获取id属性*/
     public static boolean isIdField(Field field) {
         return idCache.get(field.getDeclaringClass()).getName().equals(field.getName());
     }
-
     /**获取id属性*/
     public static Field getId(Class _class) {
         return idCache.get(_class);
@@ -52,8 +53,8 @@ public class ReflectionUtil {
             Field.setAccessible(fields,true);
             List<Field> fieldList = new ArrayList<>(fields.length);
             for(Field field:fields){
-                if(field.getType().getName().contains(packageName)){
-                    compositFieldCache.put(_class.getName()+"_"+field.getType().getName(),field);
+                if(field.getType().getName().contains(QuickDAOConfig.packageName)){
+                    compositFieldCache.put(_class.getName()+"_"+field.getType().getName()+"_"+field.getName(),field);
                 }else if(field.getDeclaredAnnotation(Ignore.class)==null){
                     fieldList.add(field);
                 }
@@ -63,10 +64,31 @@ public class ReflectionUtil {
             classFieldsCache.put(_class,fields);
         }
         return classFieldsCache.get(_class);
-   }
+    }
 
-    public static Field getCompositField(Class _class,Class fieldType){
-        return compositFieldCache.get(_class.getName()+"_"+fieldType.getName());
+    public static Field[] getCompositField(Class _class,Class fieldType){
+        String target = _class.getName()+"_"+fieldType.getName();
+        if(classCompositFieldsCache.containsKey(target)) {
+            return classCompositFieldsCache.get(target);
+        }
+        List<Field> fieldList = new ArrayList<>();
+        Set<String> keySet = compositFieldCache.keySet();
+        for(String key:keySet){
+            if(key.contains(target)){
+                fieldList.add(compositFieldCache.get(key));
+            }
+        }
+        if(fieldList.size()==0){
+            return null;
+        }else{
+            Field[] fields = fieldList.toArray(new Field[fieldList.size()]);
+            classCompositFieldsCache.put(target,fields);
+            return fields;
+        }
+    }
+
+    public static Field getCompositField(Class _class,Class fieldType,String fieldName){
+        return compositFieldCache.get(_class.getName()+"_"+fieldType.getName()+"_"+fieldName);
     }
 
     /**该类是否有唯一性约束*/

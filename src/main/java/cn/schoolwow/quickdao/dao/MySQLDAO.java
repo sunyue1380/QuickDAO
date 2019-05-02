@@ -1,7 +1,6 @@
 package cn.schoolwow.quickdao.dao;
 
 import javax.sql.DataSource;
-import java.util.List;
 
 public class MySQLDAO extends AbstractDAO{
     public MySQLDAO(DataSource dataSource) {
@@ -23,20 +22,5 @@ public class MySQLDAO extends AbstractDAO{
             }
             default:return "";
         }
-    }
-
-    @Override
-    protected String getUniqueStatement(String tableName, List<String> columns) {
-        StringBuilder uniqueSQLBuilder = new StringBuilder("alter table `"+tableName+"` add unique index `"+tableName+"_");
-        columns.stream().forEach((column)->{
-            uniqueSQLBuilder.append(column+"_");
-        });
-        uniqueSQLBuilder.append("unique_index` (");
-        columns.stream().forEach((column)->{
-            uniqueSQLBuilder.append("`"+column+"`,");
-        });
-        uniqueSQLBuilder.deleteCharAt(uniqueSQLBuilder.length()-1);
-        uniqueSQLBuilder.append(");");
-        return uniqueSQLBuilder.toString();
     }
 }

@@ -1,8 +1,9 @@
 package cn.schoolwow.quickdao.domain;
 
+import java.io.Serializable;
 import java.util.List;
 
-public class PageVo<T> {
+public class PageVo<T> implements Serializable{
     private List<T> list;
     private long totalSize;
     private int totalPage;
