@@ -1,14 +1,16 @@
 package cn.schoolwow.quickdao.domain;
 
 import javax.sql.DataSource;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Predicate;
 
 public class QuickDAOConfig {
     /**数据源*/
     public static DataSource dataSource;
     /**待扫描包名*/
-    public static String packageName;
+    public static Map<String,String> packageNameMap = new HashMap<>();
     /**要忽略的类*/
     public static List<Class> ignoreClassList;
     /**要忽略的包名*/

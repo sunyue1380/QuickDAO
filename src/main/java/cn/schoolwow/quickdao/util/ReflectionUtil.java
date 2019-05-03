@@ -45,21 +45,30 @@ public class ReflectionUtil {
         Field id = getId(instance.getClass());
         id.setLong(instance,value);
     }
-    /**获取类属性
-     * 排除复杂对象字段*/
+    /**
+     * 获取类属性
+     * */
     public static Field[] getFields(Class _class){
         if(!classFieldsCache.containsKey(_class)){
             Field[] fields = _class.getDeclaredFields();
             Field.setAccessible(fields,true);
             List<Field> fieldList = new ArrayList<>(fields.length);
+            Set<String> packageNameSet = QuickDAOConfig.packageNameMap.keySet();
             for(Field field:fields){
-                if(field.getType().getName().contains(QuickDAOConfig.packageName)){
+                //排除复杂对象字段
+                boolean contains = false;
+                for(String packageName:packageNameSet){
+                    if(field.getType().getName().contains(packageName)){
+                        contains = true;
+                        break;
+                    }
+                }
+                if(contains){
                     compositFieldCache.put(_class.getName()+"_"+field.getType().getName()+"_"+field.getName(),field);
                 }else if(field.getDeclaredAnnotation(Ignore.class)==null){
                     fieldList.add(field);
                 }
             }
-//            List<Field> fieldList = Arrays.asList(fields).stream().filter(f->!f.getType().getName().contains(packageName)).collect(Collectors.toList());
             fields = fieldList.toArray(new Field[fieldList.size()]);
             classFieldsCache.put(_class,fields);
         }

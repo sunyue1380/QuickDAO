@@ -784,6 +784,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
         return null;
     }
 
+    @Override
     public String toString(){
         return "[Condition]类["+_class.getName()+"],where子句:["+whereBuilder.toString()+"],参数列表:["+parameterList+"],排序:["+orderByBuilder.toString()+"],分页:["+limit+"]";
     }

@@ -60,7 +60,8 @@ public class DAOTest {
         Object[][] data = new Object[dataSources.length][2];
         for(int i=0;i<dataSources.length;i++){
             data[i][0] = QuickDAO.newInstance().dataSource(dataSources[i])
-                    .packageName(packageName)
+                    .packageName("cn.schoolwow.quickdao.entity")
+                    .packageName("cn.schoolwow.quickdao.domain","d")
 //                    .ignoreClass(WatchLater.class)
 //                    .ignorePackageName("cn.schoolwow.quickdao.entity.logic")
                     .build();

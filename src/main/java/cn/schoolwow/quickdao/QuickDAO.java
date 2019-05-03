@@ -33,7 +33,11 @@ public class QuickDAO {
         return this;
     }
     public QuickDAO packageName(String packageName){
-        QuickDAOConfig.packageName = packageName;
+        QuickDAOConfig.packageNameMap.put(packageName,"");
+        return this;
+    }
+    public QuickDAO packageName(String packageName,String prefix){
+        QuickDAOConfig.packageNameMap.put(packageName,prefix+"_");
         return this;
     }
     public QuickDAO ignorePackageName(String ignorePackageName){
@@ -60,7 +64,7 @@ public class QuickDAO {
     }
 
     public DAO build() {
-        if(ValidateUtil.isEmpty(QuickDAOConfig.packageName)){
+        if(QuickDAOConfig.packageNameMap.isEmpty()){
             throw new IllegalArgumentException("请设置要扫描的实体类包名!");
         }
         if(ValidateUtil.isNull(QuickDAOConfig.dataSource)){

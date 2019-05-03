@@ -419,151 +419,156 @@ public abstract class AbstractDAO implements DAO {
 
     /**获取实体类信息同时过滤*/
     protected JSONArray getEntityInfo() throws IOException, ClassNotFoundException {
-        String packageName = QuickDAOConfig.packageName;
-        String packageNamePath = packageName.replace(".", "/");
-        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-        URL url = classLoader.getResource(packageNamePath);
-        List<Class> classList = new ArrayList<>();
-        if("file".equals(url.getProtocol())){
-            File file = new File(url.getFile());
-            //TODO 对于有空格或者中文路径会无法识别
-            logger.info("[类文件路径]{}",file.getAbsolutePath());
-            if(!file.isDirectory()){
-                throw new IllegalArgumentException("包名不是合法的文件夹!");
-            }
-            Stack<File> stack = new Stack<>();
-            stack.push(file);
+        Set<String> keySet = QuickDAOConfig.packageNameMap.keySet();
+        JSONArray entityList = new JSONArray();
+        for(String packageName:keySet){
+            List<Class> classList = new ArrayList<>();
+            String packageNamePath = packageName.replace(".", "/");
+            ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+            URL url = classLoader.getResource(packageNamePath);
 
-            String indexOfString = packageName.replace(".","/");
-            while(!stack.isEmpty()){
-                file = stack.pop();
-                for(File f:file.listFiles()){
-                    if(f.isDirectory()){
-                        stack.push(f);
-                    }else if(f.isFile()&&f.getName().endsWith(".class")){
-                        String path = f.getAbsolutePath().replace("\\","/");
-                        int startIndex = path.indexOf(indexOfString);
-                        String className = path.substring(startIndex,path.length()-6).replace("/",".");
-                        classList.add(Class.forName(className));
-                    }
+            if("file".equals(url.getProtocol())){
+                File file = new File(url.getFile());
+                //TODO 对于有空格或者中文路径会无法识别
+                logger.info("[类文件路径]{}",file.getAbsolutePath());
+                if(!file.isDirectory()){
+                    throw new IllegalArgumentException("包名不是合法的文件夹!");
                 }
-            }
-        }else if("jar".equals(url.getProtocol())){
-            JarURLConnection jarURLConnection = (JarURLConnection) url.openConnection();
-            if (null != jarURLConnection) {
-                JarFile jarFile = jarURLConnection.getJarFile();
-                if (null != jarFile) {
-                    Enumeration<JarEntry> jarEntries = jarFile.entries();
-                    while (jarEntries.hasMoreElements()) {
-                        JarEntry jarEntry = jarEntries.nextElement();
-                        String jarEntryName = jarEntry.getName();
-                        if (jarEntryName.contains(packageNamePath) && jarEntryName.endsWith(".class")) { //是否是类,是类进行加载
-                            String className = jarEntryName.substring(0, jarEntryName.lastIndexOf(".")).replaceAll("/", ".");
+                Stack<File> stack = new Stack<>();
+                stack.push(file);
+
+                String indexOfString = packageName.replace(".","/");
+                while(!stack.isEmpty()){
+                    file = stack.pop();
+                    for(File f:file.listFiles()){
+                        if(f.isDirectory()){
+                            stack.push(f);
+                        }else if(f.isFile()&&f.getName().endsWith(".class")){
+                            String path = f.getAbsolutePath().replace("\\","/");
+                            int startIndex = path.indexOf(indexOfString);
+                            String className = path.substring(startIndex,path.length()-6).replace("/",".");
                             classList.add(Class.forName(className));
                         }
                     }
                 }
-            }
-        }
-        if (classList.size() == 0) {
-            logger.warn("[扫描实体类信息为空]包名:{}",QuickDAOConfig.packageName);
-            return new JSONArray();
-        }
-        Stream<Class> stream = classList.stream().filter((_class)->{
-            boolean result = true;
-            //根据类过滤
-            if(QuickDAOConfig.ignoreClassList!=null){
-                if(QuickDAOConfig.ignoreClassList.contains(_class)){
-                    logger.warn("[忽略类名]类名:{}!",_class.getName());
-                    result = false;
-                }
-            }
-            //根据包名过滤
-            if(QuickDAOConfig.ignorePackageNameList!=null){
-                for(String ignorePackageName:QuickDAOConfig.ignorePackageNameList){
-                    if(_class.getName().contains(ignorePackageName)){
-                        logger.warn("[忽略包名]包名:{}类名:{}",ignorePackageName,_class.getName());
-                        result = false;
+            }else if("jar".equals(url.getProtocol())){
+                JarURLConnection jarURLConnection = (JarURLConnection) url.openConnection();
+                if (null != jarURLConnection) {
+                    JarFile jarFile = jarURLConnection.getJarFile();
+                    if (null != jarFile) {
+                        Enumeration<JarEntry> jarEntries = jarFile.entries();
+                        while (jarEntries.hasMoreElements()) {
+                            JarEntry jarEntry = jarEntries.nextElement();
+                            String jarEntryName = jarEntry.getName();
+                            if (jarEntryName.contains(packageNamePath) && jarEntryName.endsWith(".class")) { //是否是类,是类进行加载
+                                String className = jarEntryName.substring(0, jarEntryName.lastIndexOf(".")).replaceAll("/", ".");
+                                classList.add(Class.forName(className));
+                            }
+                        }
                     }
                 }
             }
-            return result;
-        });
-        if(QuickDAOConfig.predicate!=null){
-            stream.filter(QuickDAOConfig.predicate);
-        }
-        classList = stream.collect(Collectors.toList());
-        JSONArray entityList = new JSONArray();
-        for (Class c : classList) {
-            String tableName = null;
-            if((packageName.length()+c.getSimpleName().length()+1)==c.getName().length()){
-                //支持实体包多个文件夹
-                tableName = StringUtil.Camel2Underline(c.getSimpleName());
-            }else{
-                String prefix = c.getName().substring(packageName.length()+1,c.getName().lastIndexOf(".")).replace(".","_");
-                tableName = prefix+"@"+StringUtil.Camel2Underline(c.getSimpleName());
-            }
-            SQLUtil.classTableMap.put(c.getName(),tableName);
-        }
-        for (Class c : classList) {
-            JSONObject entity = new JSONObject();
-            entity.put("ignore", c.getDeclaredAnnotation(Ignore.class) != null);
-            if(entity.getBoolean("ignore")){
-                logger.debug("[忽略实体类=>{}]该类被@Ignore注解修饰,将跳过该实体类!",c.getName());
+            if (classList.size() == 0) {
+                logger.warn("[扫描实体类信息为空]前缀:{},包名:{}",QuickDAOConfig.packageNameMap.get(packageName),packageName);
                 continue;
             }
-            entity.put("tableName",SQLUtil.classTableMap.get(c.getName()));
-            entity.put("className",c.getSimpleName());
-            Field[] fields = ReflectionUtil.getFields(c);
-            JSONArray properties = new JSONArray();
-            JSONArray uniqueKeyProperties = new JSONArray();
-            JSONArray foreignKeyProperties = new JSONArray();
-            for (int i = 0; i < fields.length; i++) {
-                JSONObject property = new JSONObject();
-                //Ignore注解或者成员属性为指定包下面的实体类均要忽略
-                boolean ignore = fields[i].getType().getName().contains(packageName)||fields[i].getDeclaredAnnotation(Ignore.class) != null;
-                property.put("ignore",ignore);
-                property.put("column", StringUtil.Camel2Underline(fields[i].getName()));
-                property.put("name", fields[i].getName());
-                property.put("type", fields[i].getType().getSimpleName().toLowerCase());
-                property.put("unique", fields[i].getDeclaredAnnotation(Unique.class) != null);
-                property.put("notNull", fields[i].getDeclaredAnnotation(NotNull.class) != null);
-                property.put("id", fields[i].getDeclaredAnnotation(Id.class) != null||"id".equals(property.getString("column")));
-                if(property.getBoolean("id")){
-                    property.put("unique", true);
-                    property.put("notNull", true);
-                    fields[i].setAccessible(true);
-                    ReflectionUtil.idCache.put(c,fields[i]);
+            Stream<Class> stream = classList.stream().filter((_class)->{
+                boolean result = true;
+                //根据类过滤
+                if(QuickDAOConfig.ignoreClassList!=null){
+                    if(QuickDAOConfig.ignoreClassList.contains(_class)){
+                        logger.warn("[忽略类名]类名:{}!",_class.getName());
+                        result = false;
+                    }
                 }
-                if (fields[i].getDeclaredAnnotation(ColumnType.class) != null) {
-                    property.put("columnType", fields[i].getDeclaredAnnotation(ColumnType.class).value());
-                }else{
-                    property.put("columnType", fieldMapping.get(property.getString("type")));
+                //根据包名过滤
+                if(QuickDAOConfig.ignorePackageNameList!=null){
+                    for(String ignorePackageName:QuickDAOConfig.ignorePackageNameList){
+                        if(_class.getName().contains(ignorePackageName)){
+                            logger.warn("[忽略包名]包名:{}类名:{}",ignorePackageName,_class.getName());
+                            result = false;
+                        }
+                    }
                 }
-                if (fields[i].getDeclaredAnnotation(DefaultValue.class) != null) {
-                    property.put("default", fields[i].getDeclaredAnnotation(DefaultValue.class).value());
-                }
-                property.put("comment","");
-                if(fields[i].getDeclaredAnnotation(Comment.class)!=null){
-                    property.put("comment",fields[i].getDeclaredAnnotation(Comment.class).value());
-                }
-                if(property.getBoolean("unique")){
-                    uniqueKeyProperties.add(property.getString("column"));
-                }
-                ForeignKey foreignKey = fields[i].getDeclaredAnnotation(ForeignKey.class);
-                if(foreignKey!=null){
-                    String operation = foreignKey.foreignKeyOption().getOperation();
-                    property.put("foreignKey","`"+SQLUtil.classTableMap.get(foreignKey.table().getName())+"`(`"+foreignKey.field()+"`) ON DELETE "+operation+" ON UPDATE "+operation);
-                    property.put("foreignKeyName","FK_"+entity.getString("tableName")+"_"+foreignKey.field()+"_"+SQLUtil.classTableMap.get(foreignKey.table().getName())+"_"+property.getString("name"));
-                    foreignKeyProperties.add(property);
-                }
-                properties.add(property);
+                return result;
+            });
+            if(QuickDAOConfig.predicate!=null){
+                stream.filter(QuickDAOConfig.predicate);
             }
-            entity.put("properties", properties);
-            entity.put("uniqueKeyProperties", uniqueKeyProperties);
-            entity.put("foreignKeyProperties", foreignKeyProperties);
-            entityList.add(entity);
+            classList = stream.collect(Collectors.toList());
+
+            for (Class c : classList) {
+                String tableName = null;
+                if((packageName.length()+c.getSimpleName().length()+1)==c.getName().length()){
+                    //支持实体包多个文件夹
+                    tableName = StringUtil.Camel2Underline(c.getSimpleName());
+                }else{
+                    String prefix = c.getName().substring(packageName.length()+1,c.getName().lastIndexOf(".")).replace(".","_");
+                    tableName = prefix+"@"+StringUtil.Camel2Underline(c.getSimpleName());
+                }
+                SQLUtil.classTableMap.put(c.getName(),QuickDAOConfig.packageNameMap.get(packageName)+tableName);
+            }
+            for (Class c : classList) {
+                JSONObject entity = new JSONObject();
+                entity.put("ignore", c.getDeclaredAnnotation(Ignore.class) != null);
+                if(entity.getBoolean("ignore")){
+                    logger.debug("[忽略实体类=>{}]该类被@Ignore注解修饰,将跳过该实体类!",c.getName());
+                    continue;
+                }
+                entity.put("tableName",SQLUtil.classTableMap.get(c.getName()));
+                entity.put("className",c.getSimpleName());
+                Field[] fields = ReflectionUtil.getFields(c);
+                JSONArray properties = new JSONArray();
+                JSONArray uniqueKeyProperties = new JSONArray();
+                JSONArray foreignKeyProperties = new JSONArray();
+                for (int i = 0; i < fields.length; i++) {
+                    JSONObject property = new JSONObject();
+                    //Ignore注解或者成员属性为指定包下面的实体类均要忽略
+                    boolean ignore = fields[i].getType().getName().contains(packageName)||fields[i].getDeclaredAnnotation(Ignore.class) != null;
+                    property.put("ignore",ignore);
+                    property.put("column", StringUtil.Camel2Underline(fields[i].getName()));
+                    property.put("name", fields[i].getName());
+                    property.put("type", fields[i].getType().getSimpleName().toLowerCase());
+                    property.put("unique", fields[i].getDeclaredAnnotation(Unique.class) != null);
+                    property.put("notNull", fields[i].getDeclaredAnnotation(NotNull.class) != null);
+                    property.put("id", fields[i].getDeclaredAnnotation(Id.class) != null||"id".equals(property.getString("column")));
+                    if(property.getBoolean("id")){
+                        property.put("unique", true);
+                        property.put("notNull", true);
+                        fields[i].setAccessible(true);
+                        ReflectionUtil.idCache.put(c,fields[i]);
+                    }
+                    if (fields[i].getDeclaredAnnotation(ColumnType.class) != null) {
+                        property.put("columnType", fields[i].getDeclaredAnnotation(ColumnType.class).value());
+                    }else{
+                        property.put("columnType", fieldMapping.get(property.getString("type")));
+                    }
+                    if (fields[i].getDeclaredAnnotation(DefaultValue.class) != null) {
+                        property.put("default", fields[i].getDeclaredAnnotation(DefaultValue.class).value());
+                    }
+                    property.put("comment","");
+                    if(fields[i].getDeclaredAnnotation(Comment.class)!=null){
+                        property.put("comment",fields[i].getDeclaredAnnotation(Comment.class).value());
+                    }
+                    if(property.getBoolean("unique")){
+                        uniqueKeyProperties.add(property.getString("column"));
+                    }
+                    ForeignKey foreignKey = fields[i].getDeclaredAnnotation(ForeignKey.class);
+                    if(foreignKey!=null){
+                        String operation = foreignKey.foreignKeyOption().getOperation();
+                        property.put("foreignKey","`"+SQLUtil.classTableMap.get(foreignKey.table().getName())+"`(`"+foreignKey.field()+"`) ON DELETE "+operation+" ON UPDATE "+operation);
+                        property.put("foreignKeyName","FK_"+entity.getString("tableName")+"_"+foreignKey.field()+"_"+SQLUtil.classTableMap.get(foreignKey.table().getName())+"_"+property.getString("name"));
+                        foreignKeyProperties.add(property);
+                    }
+                    properties.add(property);
+                }
+                entity.put("properties", properties);
+                entity.put("uniqueKeyProperties", uniqueKeyProperties);
+                entity.put("foreignKeyProperties", foreignKeyProperties);
+                entityList.add(entity);
+            }
         }
+
         logger.debug("[获取实体信息]实体类个数:{}",entityList.size());
         return entityList;
     }
