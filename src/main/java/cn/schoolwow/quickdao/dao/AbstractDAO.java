@@ -129,7 +129,7 @@ public abstract class AbstractDAO implements DAO {
                 count = (int) query(_class).addQuery(property,value).count();
             }
             ResultSet resultSet = ps.executeQuery();
-            List<T> instanceList = ReflectionUtil.mappingResultSetToList(resultSet,count,_class);
+            List<T> instanceList = ReflectionUtil.mappingResultSetToJSONArray(resultSet,"t",count).toJavaList(_class);
             ps.close();
             connection.close();
             return instanceList;
@@ -426,6 +426,9 @@ public abstract class AbstractDAO implements DAO {
             String packageNamePath = packageName.replace(".", "/");
             ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
             URL url = classLoader.getResource(packageNamePath);
+            if(url==null){
+                throw new IllegalArgumentException("无法识别的包路径:"+packageNamePath);
+            }
 
             if("file".equals(url.getProtocol())){
                 File file = new File(url.getFile());
@@ -533,7 +536,6 @@ public abstract class AbstractDAO implements DAO {
                     property.put("notNull", fields[i].getDeclaredAnnotation(NotNull.class) != null);
                     property.put("id", fields[i].getDeclaredAnnotation(Id.class) != null||"id".equals(property.getString("column")));
                     if(property.getBoolean("id")){
-                        property.put("unique", true);
                         property.put("notNull", true);
                         fields[i].setAccessible(true);
                         ReflectionUtil.idCache.put(c,fields[i]);

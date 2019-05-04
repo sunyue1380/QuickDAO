@@ -32,6 +32,21 @@ public class ConditionTest extends DAOTest{
     }
 
     @Test
+    public void testGetArray() throws Exception {
+        JSONArray userList = dao.query(User.class)
+                .distinct()
+                .addQuery("username","@")
+                .addQuery("type",">=",1)
+                .addInQuery("token",new String[]{"7a746f17a9bf4903b09b617135152c71","9204d99472c04ce7abf1bcb9773b0d49"})
+                .addNotNullQuery("lastLogin")
+                .orderByDesc("uid")
+                .page(1,10)
+                .getArray();
+        logger.info("[测试查询功能]查询结果:{}", userList.toJSONString());
+        Assert.assertTrue(userList.size()==2);
+    }
+
+    @Test
     public void testSubCondition() throws Exception {
         List<UserFollow> userFollowList = dao.query(UserFollow.class)
                 .joinTable(User.class,"userId","uid","user")

@@ -67,6 +67,7 @@ public interface Condition<T> {
     long update();
     long delete();
     List<T> getList();
+    JSONArray getArray();
     PageVo<T> getPagingList();
     PageVo<T> getPagingCompositList();
     /**获取复合列表(即返回关联表字段)*/
@@ -74,7 +75,7 @@ public interface Condition<T> {
     JSONArray getCompositArray();
     /**获取部分列*/
     List<T> getPartList();
-    List<T> getValueList(Class<T> _class, String column);
+    <E> List<E> getValueList(Class<E> _class, String column);
 
     JSONArray getAggerateList();
 

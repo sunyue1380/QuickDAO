@@ -521,6 +521,11 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
 
     @Override
     public List<T> getList() {
+        return getArray().toJavaList(_class);
+    }
+
+    @Override
+    public JSONArray getArray() {
         assureDone();
         sqlBuilder.setLength(0);
         sqlBuilder.append("select " + distinct + " " + SQLUtil.columns(_class, "t") + " from " + tableName + " as t ");
@@ -535,9 +540,9 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
             addJoinTableParameters(ps);
             logger.debug("[getList]执行SQL:{}", sql);
             ResultSet resultSet = ps.executeQuery();
-            List<T> instanceList = ReflectionUtil.mappingResultSetToList(resultSet, (int) count(), _class);
+            JSONArray array = ReflectionUtil.mappingResultSetToJSONArray(resultSet,"t", (int) count());
             ps.close();
-            return instanceList;
+            return array;
         } catch (SQLException e) {
             e.printStackTrace();
             return null;
@@ -694,7 +699,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
             addJoinTableParameters(ps);
             logger.debug("[getValueList]执行SQL:{}", sql);
             ResultSet resultSet = ps.executeQuery();
-            List<T> instanceList = ReflectionUtil.mappingResultSetToList(resultSet, (int) count(), _class);
+            List<T> instanceList = getArray().toJavaList(_class);
             ps.close();
             return instanceList;
         } catch (Exception e) {
@@ -704,7 +709,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
     }
 
     @Override
-    public List<T> getValueList(Class<T> _class, String column) {
+    public <E> List<E> getValueList(Class<E> _class, String column) {
         assureDone();
         sqlBuilder.setLength(0);
         sqlBuilder.append("select " + distinct + " " + "t.`" + StringUtil.Camel2Underline(column) + "` from " + tableName + " as t ");
@@ -719,7 +724,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
             addJoinTableParameters(ps);
             logger.debug("[getValueList]执行SQL:{}", sql);
             ResultSet resultSet = ps.executeQuery();
-            List<T> instanceList = ReflectionUtil.mappingSingleResultToList(resultSet, (int) count(), _class);
+            List<E> instanceList = ReflectionUtil.mappingSingleResultToList(resultSet, (int) count(), _class);
             ps.close();
             return instanceList;
         } catch (Exception e) {

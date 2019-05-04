@@ -207,15 +207,9 @@ public class ReflectionUtil {
     }
 
     /**
-     * 将ResultSet映射到List中
-     * @return 结果集的映射
+     * 映射结果集到JSONArray中
      * */
-    public static <T> List<T> mappingResultSetToList(ResultSet resultSet,int count,Class<T> _class) throws SQLException {
-        JSONArray array = mappingResultSetToJSONArray(resultSet,"t",count);
-        return array.toJavaList(_class);
-    }
-
-    private static JSONArray mappingResultSetToJSONArray(ResultSet resultSet,String tableNameAlias,int count) throws SQLException {
+    public static JSONArray mappingResultSetToJSONArray(ResultSet resultSet,String tableNameAlias,int count) throws SQLException {
         ResultSetMetaData metaData = resultSet.getMetaData();
         int columnCount = metaData.getColumnCount();
         JSONArray array = new JSONArray(count);
