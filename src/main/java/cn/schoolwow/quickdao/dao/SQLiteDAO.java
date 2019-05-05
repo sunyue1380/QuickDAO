@@ -83,8 +83,11 @@ public class SQLiteDAO extends AbstractDAO{
     /**创建唯一索引*/
     protected void createUniqueKey(JSONObject entity,Connection connection) throws SQLException {
         String tableName = entity.getString("tableName");
-        StringBuilder uniqueKeyBuilder = new StringBuilder("create unique index `"+tableName+"_unique_index` on `"+tableName+"` (");
         JSONArray uniqueKeyProperties = entity.getJSONArray("uniqueKeyProperties");
+        if(uniqueKeyProperties.size()==0){
+            return;
+        }
+        StringBuilder uniqueKeyBuilder = new StringBuilder("create unique index `"+tableName+"_unique_index` on `"+tableName+"` (");
         for(int i=0;i<uniqueKeyProperties.size();i++){
             uniqueKeyBuilder.append("`"+uniqueKeyProperties.getString(i)+"`,");
         }

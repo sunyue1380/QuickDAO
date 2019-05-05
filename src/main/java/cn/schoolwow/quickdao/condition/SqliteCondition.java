@@ -14,11 +14,11 @@ public class SqliteCondition extends AbstractCondition{
     }
 
     @Override
-    public Condition addUpdate(String property, Object value) {
+    public Condition addUpdate(String field, Object value) {
         if(updateParameterList==null){
             updateParameterList = new ArrayList();
         }
-        setBuilder.append("`"+ StringUtil.Camel2Underline(property)+"`=?,");
+        setBuilder.append("`"+ StringUtil.Camel2Underline(field)+"`=?,");
         updateParameterList.add(value);
         return this;
     }

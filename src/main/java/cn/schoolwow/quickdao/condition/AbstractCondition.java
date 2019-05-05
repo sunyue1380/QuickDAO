@@ -173,22 +173,22 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
     }
 
     @Override
-    public Condition addQuery(String property, Object value) {
+    public Condition addQuery(String field, Object value) {
         if (value == null || value.toString().equals("")) {
             return this;
         }
         if (value instanceof String) {
-            addQuery(property, "like", value);
+            addQuery(field, "like", value);
         } else {
-            addQuery(property, "=", value);
+            addQuery(field, "=", value);
         }
         return this;
     }
 
     @Override
-    public Condition addQuery(String property, String operator, Object value) {
+    public Condition addQuery(String field, String operator, Object value) {
         if (value instanceof String) {
-            whereBuilder.append("(t.`" + StringUtil.Camel2Underline(property) + "` " + operator + " ?) and ");
+            whereBuilder.append("(t.`" + StringUtil.Camel2Underline(field) + "` " + operator + " ?) and ");
             boolean hasContains = false;
             for (String pattern : patterns) {
                 if (((String) value).contains(pattern)) {
@@ -201,7 +201,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
                 parameterList.add("%" + value + "%");
             }
         } else {
-            whereBuilder.append("(t.`" + StringUtil.Camel2Underline(property) + "` " + operator + " ?) and ");
+            whereBuilder.append("(t.`" + StringUtil.Camel2Underline(field) + "` " + operator + " ?) and ");
             parameterList.add(value);
         }
         return this;
@@ -305,11 +305,11 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
     }
 
     @Override
-    public Condition addUpdate(String property, Object value) {
+    public Condition addUpdate(String field, Object value) {
         if (updateParameterList == null) {
             updateParameterList = new ArrayList();
         }
-        setBuilder.append("t.`" + StringUtil.Camel2Underline(property) + "`=?,");
+        setBuilder.append("t.`" + StringUtil.Camel2Underline(field) + "`=?,");
         updateParameterList.add(value);
         return this;
     }
@@ -737,7 +737,11 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
     public JSONArray getAggerateList() {
         assureDone();
         sqlBuilder.setLength(0);
-        sqlBuilder.append("select " + distinct + " " + columnBuilder.toString() + " ," + aggerateColumnBuilder.toString() + " from " + tableName + " as t ");
+        sqlBuilder.append("select " + distinct+" ");
+        if(columnBuilder.toString().length()>0){
+            sqlBuilder.append(columnBuilder.toString()+",");
+        }
+        sqlBuilder.append(aggerateColumnBuilder.toString() + " from " + tableName + " as t ");
         addJoinTableStatement();
         addWhereStatement();
         sqlBuilder.append(groupByBuilder.toString() + " " + havingBuilder.toString() + " " + orderByBuilder.toString() + " " + limit);

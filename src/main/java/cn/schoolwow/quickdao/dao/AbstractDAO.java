@@ -294,13 +294,13 @@ public abstract class AbstractDAO implements DAO {
     }
 
     @Override
-    public long delete(Class _class, String property, Object value){
+    public long delete(Class _class, String field, Object value){
         try {
             Connection connection = getConnection();
-            String deleteSQL = SQLUtil.delete(_class, property);
+            String deleteSQL = SQLUtil.delete(_class, field);
             PreparedStatement ps = connection.prepareStatement(deleteSQL);
             ps.setObject(1, value);
-            logger.debug("[根据属性{}=>{}删除]执行SQL:{}",property,value,deleteSQL.replace("?",value.toString()));
+            logger.debug("[根据属性{}=>{}删除]执行SQL:{}",field,value,deleteSQL.replace("?",value.toString()));
             long effect = ps.executeUpdate();
             ps.close();
             if(!startTranscation){
@@ -717,8 +717,11 @@ public abstract class AbstractDAO implements DAO {
     /**创建唯一索引*/
     protected void createUniqueKey(JSONObject entity,Connection connection) throws SQLException {
         String tableName = entity.getString("tableName");
-        StringBuilder uniqueKeyBuilder = new StringBuilder("alter table `"+tableName+"` add unique index `"+tableName+"_unique_index` (");
         JSONArray uniqueKeyProperties = entity.getJSONArray("uniqueKeyProperties");
+        if(uniqueKeyProperties.size()==0){
+            return;
+        }
+        StringBuilder uniqueKeyBuilder = new StringBuilder("alter table `"+tableName+"` add unique index `"+tableName+"_unique_index` (");
         for(int i=0;i<uniqueKeyProperties.size();i++){
             uniqueKeyBuilder.append("`"+uniqueKeyProperties.getString(i)+"`,");
         }

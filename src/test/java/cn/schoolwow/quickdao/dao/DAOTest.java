@@ -235,7 +235,7 @@ public class DAOTest {
         dao.startTransaction();
         UserPlayList userPlayList = new UserPlayList();
         userPlayList.setUserId(1);
-        userPlayList.setPlaylistId(1);
+        userPlayList.setPlaylistId(2);
         logger.info("[插入用户播单订阅记录]实体:{},影响:{}",JSON.toJSONString(userPlayList),dao.save(userPlayList));
         //更新用户播单订阅数
         PlayList playList = dao.fetch(PlayList.class,1);
@@ -243,7 +243,7 @@ public class DAOTest {
         logger.info("[更新播单订阅数]实体:{},影响:{}",JSON.toJSONString(playList),dao.save(playList));
         dao.commit();
         dao.endTransaction();
-        long count = dao.query(UserPlayList.class).addQuery("userId",1).addQuery("playlistId",1).count();
+        long count = dao.query(UserPlayList.class).addQuery("userId",1).count();
         logger.info("[检查用户播单订阅记录]count:{}",count);
         Assert.assertTrue(count==2);
 
@@ -255,7 +255,7 @@ public class DAOTest {
         logger.info("[插入用户播单订阅记录]实体:{},影响:{}",JSON.toJSONString(userPlayList),dao.save(userPlayList));
         dao.rollback();
         dao.endTransaction();
-        count = dao.query(UserPlayList.class).addQuery("userId",2).addQuery("playlistId",1).count();
+        count = dao.query(UserPlayList.class).addQuery("userId",2).count();
         logger.info("[检查用户播单订阅记录]count:{}",count);
         Assert.assertTrue(count==0);
     }
