@@ -538,7 +538,7 @@ public abstract class AbstractDAO implements DAO {
                     if(property.getBoolean("id")){
                         property.put("notNull", true);
                         fields[i].setAccessible(true);
-                        ReflectionUtil.idCache.put(c,fields[i]);
+                        ReflectionUtil.idCache.put(c.getName(),fields[i]);
                     }
                     if (fields[i].getDeclaredAnnotation(ColumnType.class) != null) {
                         property.put("columnType", fields[i].getDeclaredAnnotation(ColumnType.class).value());

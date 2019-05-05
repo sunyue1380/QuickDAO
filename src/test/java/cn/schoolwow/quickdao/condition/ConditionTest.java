@@ -230,6 +230,7 @@ public class ConditionTest extends DAOTest{
         List<PlayHistory> playHistoryList = dao.query(PlayHistory.class)
                 .joinTable(User.class,"user_id","uid")
                 .addQuery("username","sunyue@schoolwow.cn")
+                .orderByDesc("uid")
                 .done()
                 .joinTable(Video.class,"video_id","id")
                 .addQuery("title","创业时代 01")
@@ -237,6 +238,7 @@ public class ConditionTest extends DAOTest{
                 .addNotNullQuery("title")
                 .addNullQuery("publishTime")
                 .addNotEmptyQuery("picture")
+                .orderByDesc("id")
                 .done()
                 .getList();
         logger.info("[查询用户名为sunyue@schoolwow.cn的对于视频标题为创业时代 01的播放历史]查询结果:{}", JSON.toJSON(playHistoryList));

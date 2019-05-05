@@ -13,5 +13,15 @@ public interface SubCondition<T> {
     SubCondition addQuery(String query);
     SubCondition addQuery(String property, Object value);
     SubCondition addQuery(String property, String operator, Object value);
+    /**
+     * 根据指定字段升序排列
+     * @param field 升序排列字段名
+     * */
+    SubCondition orderBy(String field);
+    /**
+     * 根据指定字段降序排列
+     * @param field 降序排列字段名
+     * */
+    SubCondition orderByDesc(String field);
     Condition done();
 }

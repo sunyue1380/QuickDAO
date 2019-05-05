@@ -143,7 +143,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
         if (values == null || values.length == 0) {
             return this;
         }
-        addINQuery("t",field, values, "in");
+        addINQuery("t", field, values, "in");
         return this;
     }
 
@@ -157,7 +157,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
         if (values == null || values.length == 0) {
             return this;
         }
-        addINQuery("t",field, values, "not in");
+        addINQuery("t", field, values, "not in");
         return this;
     }
 
@@ -344,16 +344,16 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
     public <T> SubCondition<T> joinTable(Class<T> _class, String primaryField, String joinTableField) {
         String tableNameAlias = "t" + (joinTableIndex++);
         //获取第一个类型为_class的字段名
-        Field[] fields = ReflectionUtil.getCompositField(this._class,_class);
+        Field[] fields = ReflectionUtil.getCompositField(this._class, _class);
         String fieldName = null;
-        if(fields!=null&&fields.length>0){
-            if(fields.length==1){
+        if (fields != null && fields.length > 0) {
+            if (fields.length == 1) {
                 fieldName = fields[0].getName();
-            }else{
-                throw new IllegalArgumentException("类["+this._class.getName()+"]存在["+fields.length+"]个类型为["+_class.getName()+"]的成员变量!");
+            } else {
+                throw new IllegalArgumentException("类[" + this._class.getName() + "]存在[" + fields.length + "]个类型为[" + _class.getName() + "]的成员变量!");
             }
         }
-        SubCondition<T> subCondition = new AbstractSubCondition<T>(_class, tableNameAlias, primaryField, joinTableField, fieldName,this);
+        SubCondition<T> subCondition = new AbstractSubCondition<T>(_class, tableNameAlias, primaryField, joinTableField, fieldName, this);
         subConditionList.add((AbstractSubCondition) subCondition);
         return subCondition;
     }
@@ -540,7 +540,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
             addJoinTableParameters(ps);
             logger.debug("[getList]执行SQL:{}", sql);
             ResultSet resultSet = ps.executeQuery();
-            JSONArray array = ReflectionUtil.mappingResultSetToJSONArray(resultSet,"t", (int) count());
+            JSONArray array = ReflectionUtil.mappingResultSetToJSONArray(resultSet, "t", (int) count());
             ps.close();
             return array;
         } catch (SQLException e) {
@@ -632,7 +632,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
                 }
 
                 for (AbstractCondition.AbstractSubCondition subCondition : subConditionList) {
-                    if(ValidateUtil.isEmpty(subCondition.compositField)){
+                    if (ValidateUtil.isEmpty(subCondition.compositField)) {
                         continue;
                     }
                     JSONObject subObject = new JSONObject();
@@ -668,7 +668,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
                             }
                         }
                     }
-                    o.put(ReflectionUtil.getCompositField(_class, subCondition._class,subCondition.compositField).getName(), subObject);
+                    o.put(ReflectionUtil.getCompositField(_class, subCondition._class, subCondition.compositField).getName(), subObject);
                 }
                 array.add(o);
             }
@@ -737,9 +737,9 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
     public JSONArray getAggerateList() {
         assureDone();
         sqlBuilder.setLength(0);
-        sqlBuilder.append("select " + distinct+" ");
-        if(columnBuilder.toString().length()>0){
-            sqlBuilder.append(columnBuilder.toString()+",");
+        sqlBuilder.append("select " + distinct + " ");
+        if (columnBuilder.toString().length() > 0) {
+            sqlBuilder.append(columnBuilder.toString() + ",");
         }
         sqlBuilder.append(aggerateColumnBuilder.toString() + " from " + tableName + " as t ");
         addJoinTableStatement();
@@ -794,8 +794,8 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
     }
 
     @Override
-    public String toString(){
-        return "[Condition]类["+_class.getName()+"],where子句:["+whereBuilder.toString()+"],参数列表:["+parameterList+"],排序:["+orderByBuilder.toString()+"],分页:["+limit+"]";
+    public String toString() {
+        return "[Condition]类[" + _class.getName() + "],where子句:[" + whereBuilder.toString() + "],参数列表:[" + parameterList + "],排序:[" + orderByBuilder.toString() + "],分页:[" + limit + "]";
     }
 
     private PageVo<T> getPageVo() {
@@ -887,7 +887,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
         parameterIndex = 1;
     }
 
-    private void addINQuery(String tableAliasName,String field, Object[] values, String in) {
+    private void addINQuery(String tableAliasName, String field, Object[] values, String in) {
         if (values[0] instanceof String) {
             for (int i = 0; i < values.length; i++) {
                 //不能加百分号
@@ -895,7 +895,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
             }
         }
         parameterList.addAll(Arrays.asList(values));
-        whereBuilder.append("("+tableAliasName+"."+ StringUtil.Camel2Underline(field) + " " + in + " (");
+        whereBuilder.append("(" + tableAliasName + "." + StringUtil.Camel2Underline(field) + " " + in + " (");
         for (int i = 0; i < values.length; i++) {
             whereBuilder.append("?,");
         }
@@ -945,7 +945,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
             if (values == null || values.length == 0) {
                 return this;
             }
-            addINQuery(tableAliasName,field,values,"in");
+            addINQuery(tableAliasName, field, values, "in");
             return this;
         }
 
@@ -959,7 +959,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
             if (values == null || values.length == 0) {
                 return this;
             }
-            addINQuery(tableAliasName,field,values,"not in");
+            addINQuery(tableAliasName, field, values, "not in");
             return this;
         }
 
@@ -1007,6 +1007,18 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
                 whereBuilder.append("(" + tableAliasName + ".`" + StringUtil.Camel2Underline(property) + "` " + operator + " ?) and ");
                 parameterList.add(value);
             }
+            return this;
+        }
+
+        @Override
+        public SubCondition orderBy(String field) {
+            orderByBuilder.append(tableAliasName + ".`" + StringUtil.Camel2Underline(field) + "` asc,");
+            return this;
+        }
+
+        @Override
+        public SubCondition orderByDesc(String field) {
+            orderByBuilder.append(tableAliasName + ".`" + StringUtil.Camel2Underline(field) + "` desc,");
             return this;
         }
 

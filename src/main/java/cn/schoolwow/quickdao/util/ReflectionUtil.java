@@ -24,21 +24,21 @@ public class ReflectionUtil {
     /**记录sql语句*/
     private static JSONObject sqlCache = new JSONObject();
     /**记录类对应字段数组*/
-    private static Map<Class,Field[]> classFieldsCache = new HashMap<>();
+    private static Map<String,Field[]> classFieldsCache = new HashMap<>();
     /**记录类的复杂字段*/
     private static Map<String,Field[]> classCompositFieldsCache = new HashMap<>();
     /**记录复杂对象对应字段*/
     private static Map<String,Field> compositFieldCache = new HashMap<>();
     /**记录类对应主键字段*/
-    public static Map<Class,Field> idCache = new HashMap<>();
+    public static Map<String,Field> idCache = new HashMap<>();
 
     /**获取id属性*/
     public static boolean isIdField(Field field) {
-        return idCache.get(field.getDeclaringClass()).getName().equals(field.getName());
+        return idCache.get(field.getDeclaringClass().getName()).getName().equals(field.getName());
     }
     /**获取id属性*/
     public static Field getId(Class _class) {
-        return idCache.get(_class);
+        return idCache.get(_class.getName());
     }
     /**获取id属性*/
     public static void setId(Object instance,long value) throws NoSuchFieldException, IllegalAccessException {
@@ -49,7 +49,7 @@ public class ReflectionUtil {
      * 获取类属性
      * */
     public static Field[] getFields(Class _class){
-        if(!classFieldsCache.containsKey(_class)){
+        if(!classFieldsCache.containsKey(_class.getName())){
             Field[] fields = _class.getDeclaredFields();
             Field.setAccessible(fields,true);
             List<Field> fieldList = new ArrayList<>(fields.length);
@@ -70,9 +70,9 @@ public class ReflectionUtil {
                 }
             }
             fields = fieldList.toArray(new Field[fieldList.size()]);
-            classFieldsCache.put(_class,fields);
+            classFieldsCache.put(_class.getName(),fields);
         }
-        return classFieldsCache.get(_class);
+        return classFieldsCache.get(_class.getName());
     }
 
     public static Field[] getCompositField(Class _class,Class fieldType){
