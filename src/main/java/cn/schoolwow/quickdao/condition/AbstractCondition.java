@@ -520,6 +520,16 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
     }
 
     @Override
+    public T getOne() {
+        List<T> list = getList();
+        if(list==null||list.size()==0){
+            return null;
+        }else{
+            return list.get(0);
+        }
+    }
+
+    @Override
     public List<T> getList() {
         return getArray().toJavaList(_class);
     }

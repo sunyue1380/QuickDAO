@@ -173,6 +173,11 @@ public interface Condition<T> {
      * */
     long delete();
     /**
+     * <p>获取符合条件的数据库记录的第一条</p>
+     * <p>若无符合条件的数据库记录,返回Null</p>
+     * */
+    T getOne();
+    /**
      * 返回符合条件的数据库记录
      * */
     List<T> getList();

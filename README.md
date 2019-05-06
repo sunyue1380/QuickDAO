@@ -2,7 +2,10 @@
 QuickDAO是一款简单,易用,轻量级的java ORM框架.
 
 # 支持数据库
-目前版本只支持数据库Mysql,SQlite以及H2.
+目前版本只支持数据库Mysql,SQlite以及H2.QuickDAO支持自动建表,自动比较实体类与数据库的差异并自动新建字段.
+
+> 注意事项
+SpringBoot环境下由于类加载器问题请慎用,可能会导致未知问题出现!
 
 # 快速入门
 # 1 导入QuickDAO

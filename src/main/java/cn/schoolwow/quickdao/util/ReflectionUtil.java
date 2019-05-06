@@ -41,7 +41,7 @@ public class ReflectionUtil {
         return idCache.get(_class.getName());
     }
     /**获取id属性*/
-    public static void setId(Object instance,long value) throws NoSuchFieldException, IllegalAccessException {
+    public static void setId(Object instance,long value) throws IllegalAccessException {
         Field id = getId(instance.getClass());
         id.setLong(instance,value);
     }
