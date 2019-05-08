@@ -37,6 +37,8 @@ public abstract class AbstractDAO implements DAO {
     private Connection connection;
     private boolean startTranscation = false;
 
+    private JSONArray entityList = null;
+
     public AbstractDAO(DataSource dataSource) {
         this.dataSource = dataSource;
         fieldMapping.put("string", "VARCHAR(255)");
@@ -226,6 +228,7 @@ public abstract class AbstractDAO implements DAO {
             PreparedStatement _updateByUniqueKeyPs = null;
             if (ReflectionUtil.hasUniqueKey(instanceList.get(0).getClass())) {
                 //如果有则获取对应语句
+                logger.debug("[根据唯一性约束更新]SQL语句:{}",updateByUniqueKey);
                 _updateByUniqueKeyPs = connection.prepareStatement(updateByUniqueKey);
             }
             PreparedStatement updateByUniqueKeyPs = _updateByUniqueKeyPs;
@@ -402,6 +405,44 @@ public abstract class AbstractDAO implements DAO {
         }
     }
 
+    /**建表*/
+    public void create(Class _class){
+        String tableName = SQLUtil.classTableMap.get(_class.getName());
+        for(int i=0;i<entityList.size();i++){
+            JSONObject o = entityList.getJSONObject(i);
+            if(o.getString("tableName").equals(tableName)){
+                try {
+                    Connection connection = dataSource.getConnection();
+                    createTable(o,connection);
+                    connection.close();
+                }catch (SQLException e){
+                    e.printStackTrace();
+                }
+                break;
+            }
+        }
+    }
+
+    /**删表*/
+    public void drop(Class _class){
+        String tableName = SQLUtil.classTableMap.get(_class.getName());
+        String sql = "drop table if exists `"+tableName+"`;";
+        logger.debug("[删除表=>{}]执行SQL:{}",_class.getSimpleName(),sql);
+        Connection connection = null;
+        try {
+            connection = getConnection();
+            connection.prepareStatement(sql).execute();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }finally {
+            try {
+                connection.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
     private Connection getConnection() throws SQLException {
         //开启事务时使用同一Connection,不开启事务时从线程池中获取
         if(startTranscation){
@@ -418,7 +459,7 @@ public abstract class AbstractDAO implements DAO {
     }
 
     /**获取实体类信息同时过滤*/
-    protected JSONArray getEntityInfo() throws IOException, ClassNotFoundException {
+    protected JSONArray getEntityInfo() throws ClassNotFoundException, IOException {
         Set<String> keySet = QuickDAOConfig.packageNameMap.keySet();
         JSONArray entityList = new JSONArray();
         for(String packageName:keySet){
@@ -429,7 +470,6 @@ public abstract class AbstractDAO implements DAO {
             if(url==null){
                 throw new IllegalArgumentException("无法识别的包路径:"+packageNamePath);
             }
-
             if("file".equals(url.getProtocol())){
                 File file = new File(url.getFile());
                 //TODO 对于有空格或者中文路径会无法识别
@@ -615,8 +655,10 @@ public abstract class AbstractDAO implements DAO {
 
     public void autoBuildDatabase(){
         try {
-            JSONArray entityList = getEntityInfo();
-            logger.debug("[获取实体信息]{}",entityList.size());
+            entityList = getEntityInfo();
+            if(!QuickDAOConfig.autoCreateTable){
+                return;
+            }
             JSONArray dbEntityList = getDatabaseInfo();
             logger.debug("[获取数据库信息]数据库表个数:{}",dbEntityList.size());
 
@@ -648,7 +690,7 @@ public abstract class AbstractDAO implements DAO {
     /**创建新表*/
     protected void createTable(JSONObject entity,Connection connection) throws SQLException {
         String tableName = entity.getString("tableName");
-        StringBuilder createTableBuilder = new StringBuilder("create table `" + tableName + "`(");
+        StringBuilder createTableBuilder = new StringBuilder("create table if not exists `" + tableName + "`(");
         JSONArray properties = entity.getJSONArray("properties");
         for (int j = 0; j < properties.size(); j++) {
             JSONObject property = properties.getJSONObject(j);

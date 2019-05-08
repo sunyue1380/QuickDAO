@@ -177,7 +177,7 @@ public class ReflectionUtil {
         Field[] fields = getFields(instance.getClass());
         //先设置非Unique字段
         for(int i=0;i<fields.length;i++){
-            if(ReflectionUtil.isIdField(fields[i])||fields[i].getAnnotation(Unique.class)!=null){
+            if(fields[i].getAnnotation(Unique.class)!=null){
                 continue;
             }
             sql = sql.replaceFirst("\\?",setParameter(instance, ps, parameterIndex, fields[i]));

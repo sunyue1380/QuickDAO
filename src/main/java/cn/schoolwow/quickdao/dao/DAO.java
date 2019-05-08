@@ -98,4 +98,10 @@ public interface DAO {
 
     /**结束事务*/
     void endTransaction();
+
+    /**建表*/
+    void create(Class _class);
+
+    /**删表*/
+    void drop(Class _class);
 }

@@ -62,6 +62,10 @@ public class QuickDAO {
         QuickDAOConfig.openForeignKey = openForeignKey;
         return this;
     }
+    public QuickDAO autoCreateTable(boolean autoCreateTable){
+        QuickDAOConfig.autoCreateTable = autoCreateTable;
+        return this;
+    }
 
     public DAO build() {
         if(QuickDAOConfig.packageNameMap.isEmpty()){

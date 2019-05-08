@@ -754,7 +754,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
         sqlBuilder.append(aggerateColumnBuilder.toString() + " from " + tableName + " as t ");
         addJoinTableStatement();
         addWhereStatement();
-        sqlBuilder.append(groupByBuilder.toString() + " " + havingBuilder.toString() + " " + orderByBuilder.toString() + " " + limit);
+        sqlBuilder.append(" "+groupByBuilder.toString() + " " + havingBuilder.toString() + " " + orderByBuilder.toString() + " " + limit);
         sql = sqlBuilder.toString().replaceAll("\\s+", " ");
 
         try (Connection connection = dataSource.getConnection();

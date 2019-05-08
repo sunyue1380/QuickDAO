@@ -12,7 +12,10 @@ import cn.schoolwow.quickdao.entity.user.UserPlayList;
 import cn.schoolwow.quickdao.util.SQLUtil;
 import cn.schoolwow.quickdao.util.ValidateUtil;
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
 import org.apache.commons.dbcp.BasicDataSource;
+import org.h2.store.fs.FileUtils;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -20,6 +23,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import sun.java2d.pipe.SpanShapeRenderer;
 
 import javax.sql.DataSource;
 import java.io.File;
@@ -27,6 +31,8 @@ import java.io.FileNotFoundException;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 @RunWith(Parameterized.class)
@@ -37,9 +43,6 @@ public class DAOTest {
 
     @Parameterized.Parameters
     public static Collection prepareData(){
-        String packageName = "cn.schoolwow.quickdao.entity";
-//        String packageName = "cn.scrb.sunyue.entity";
-
         BasicDataSource mysqlDataSource = new BasicDataSource();
         mysqlDataSource.setDriverClassName("com.mysql.jdbc.Driver");
         mysqlDataSource.setUrl("jdbc:mysql://127.0.0.1:3306/quickdao");
@@ -62,6 +65,7 @@ public class DAOTest {
             data[i][0] = QuickDAO.newInstance().dataSource(dataSources[i])
                     .packageName("cn.schoolwow.quickdao.entity")
                     .packageName("cn.schoolwow.quickdao.domain","d")
+                    .autoCreateTable(false)
 //                    .ignoreClass(WatchLater.class)
 //                    .ignorePackageName("cn.schoolwow.quickdao.entity.logic")
                     .build();
@@ -76,54 +80,29 @@ public class DAOTest {
     }
 
     @Before
-    public void before() throws SQLException, FileNotFoundException {
-        //TODO 数据库表存在时才执行
-        Connection connection = dataSource.getConnection();
-
-        //禁用外键约束
-        String url = connection.getMetaData().getURL();
-        if(url.contains("jdbc:mysql")||url.contains("jdbc:h2")){
-            connection.prepareStatement("SET foreign_key_checks = 0;").executeUpdate();
-        }else if(url.contains("jdbc:sqlite")){
-            connection.prepareStatement("PRAGMA foreign_keys = OFF;").executeUpdate();
-        }
-        logger.info("[数据源地址]{}",url);
-        connection.setAutoCommit(false);
-        Class[] classes = new Class[]{User.class,Comment.class, PlayList.class, UserPlayList.class, Video.class, PlayHistory.class, UserFollow.class};
-        for(Class c:classes){
-            String tableName = SQLUtil.classTableMap.get(c.getName());
-            if(url.contains("jdbc:mysql")||url.contains("jdbc:h2")){
-                connection.prepareStatement("truncate table `"+tableName+"`;").executeUpdate();
-            }else if(url.contains("jdbc:sqlite")){
-                connection.prepareStatement("DELETE FROM `"+tableName+"`;").executeUpdate();
-                connection.prepareStatement("DELETE FROM sqlite_sequence WHERE name = '"+tableName+"';").executeUpdate();
-            }
-        }
-
-        Scanner scanner = new Scanner(new File("test.sql"));
+    public void before() throws FileNotFoundException, ClassNotFoundException {
+        File file = new File("data.json");
+        Scanner scanner = new Scanner(file);
+        StringBuilder sb = new StringBuilder();
         while(scanner.hasNext()){
-            String sql = scanner.nextLine();
-            if(ValidateUtil.isNotEmpty(sql)){
-                if(sql.startsWith("c:")){
-                    connection.prepareStatement(sql.substring(2)).executeUpdate();
-                }else if(sql.startsWith("m:")&&url.contains("jdbc:mysql")){
-                    connection.prepareStatement(sql.substring(2)).executeUpdate();
-                }else if(sql.startsWith("h:")&&url.contains("jdbc:h2")){
-                    connection.prepareStatement(sql.substring(2)).executeUpdate();
-                }else if(sql.startsWith("s:")&&url.contains("jdbc:sqlite")){
-                    connection.prepareStatement(sql.substring(2)).executeUpdate();
+            sb.append(scanner.nextLine());
+        }
+        scanner.close();
+        JSONArray array = JSON.parseArray(sb.toString());
+        for(int i=0;i<array.size();i++){
+            JSONObject o = array.getJSONObject(i);
+            Set<Map.Entry<String,String>> entrySet = SQLUtil.classTableMap.entrySet();
+            for(Map.Entry<String,String> entry:entrySet){
+                if(entry.getValue().equals(o.getString("table"))){
+                    Class _class = Class.forName(entry.getKey());
+                    dao.drop(_class);
+                    dao.create(_class);
+                    List list = o.getJSONArray("rows").toJavaList(_class);
+                    dao.save(list);
+                    break;
                 }
             }
         }
-        scanner.close();
-        //启用外键约束
-        if(url.contains("jdbc:mysql")||url.contains("jdbc:h2")){
-            connection.prepareStatement("SET foreign_key_checks = 1;").executeUpdate();
-        }else if(url.contains("jdbc:sqlite")){
-            connection.prepareStatement("PRAGMA foreign_keys = ON;").executeUpdate();
-        }
-        connection.commit();
-        connection.close();
     }
 
     @Test

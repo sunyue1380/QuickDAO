@@ -19,4 +19,6 @@ public class QuickDAOConfig {
     public static Predicate<Class> predicate;
     /**是否开启外键约束*/
     public static boolean openForeignKey;
+    /**是否启动时自动建表*/
+    public static boolean autoCreateTable = true;
 }
