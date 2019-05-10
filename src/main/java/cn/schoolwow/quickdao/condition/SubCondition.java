@@ -3,6 +3,8 @@ package cn.schoolwow.quickdao.condition;
 import java.util.List;
 
 public interface SubCondition<T> {
+    SubCondition leftJoin();
+    SubCondition rightJoin();
     SubCondition addNullQuery(String field);
     SubCondition addNotNullQuery(String field);
     SubCondition addNotEmptyQuery(String field);

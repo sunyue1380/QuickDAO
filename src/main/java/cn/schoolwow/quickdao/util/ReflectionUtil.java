@@ -2,6 +2,7 @@ package cn.schoolwow.quickdao.util;
 
 import cn.schoolwow.quickdao.annotation.*;
 import cn.schoolwow.quickdao.condition.AbstractCondition;
+import cn.schoolwow.quickdao.condition.SubCondition;
 import cn.schoolwow.quickdao.domain.QuickDAOConfig;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;

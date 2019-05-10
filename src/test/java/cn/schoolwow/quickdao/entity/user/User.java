@@ -2,7 +2,6 @@ package cn.schoolwow.quickdao.entity.user;
 
 import cn.schoolwow.quickdao.annotation.Comment;
 import cn.schoolwow.quickdao.annotation.Id;
-import cn.schoolwow.quickdao.annotation.Ignore;
 import cn.schoolwow.quickdao.annotation.Unique;
 
 import java.util.Date;

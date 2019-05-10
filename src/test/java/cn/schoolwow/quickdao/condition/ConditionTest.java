@@ -9,6 +9,7 @@ import cn.schoolwow.quickdao.entity.logic.Video;
 import cn.schoolwow.quickdao.entity.user.User;
 import cn.schoolwow.quickdao.entity.user.UserFollow;
 import cn.schoolwow.quickdao.entity.user.UserPlayList;
+import cn.schoolwow.quickdao.entity.user.UserTalk;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
@@ -22,6 +23,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.jws.soap.SOAPBinding;
 import javax.sql.DataSource;
+import java.util.Date;
 import java.util.List;
 
 public class ConditionTest extends DAOTest{
@@ -29,6 +31,19 @@ public class ConditionTest extends DAOTest{
 
     public ConditionTest(DAO dao, DataSource dataSource) {
         super(dao, dataSource);
+    }
+
+    @Test
+    public void testOuterJoinTable() throws Exception {
+        //查询用户id为1所订阅的播单
+        List<PlayList> playListList= dao.query(PlayList.class)
+                .joinTable(UserPlayList.class,"id","playlist_id")
+                .leftJoin()
+                .addQuery("user_id",1)
+                .done()
+                .getList();
+        logger.info("[左外连接查询][查询用户id为1所订阅的播单]查询结果:{}", JSON.toJSON(playListList));
+        Assert.assertTrue(playListList.size()==1);
     }
 
     @Test
@@ -258,14 +273,14 @@ public class ConditionTest extends DAOTest{
 
     @Test
     public void testGetCompositArray() throws Exception {
-        JSONArray array = dao.query(Video.class)
+        Condition<Video> videoCondition = dao.query(Video.class)
                 .addQuery("id","1")
                 .joinTable(PlayList.class,"playlist_id","id")
-                .done()
-                .getCompositArray();
-        logger.info("[查询视频id为1的带播单信息的视频信息]{}",array.toJSONString());
-        List<Video> videoList = array.toJavaList(Video.class);
-        System.out.println(JSON.toJSONString(videoList));
+                .done();
+        JSONArray array = videoCondition.getCompositArray();
+        logger.info("[查询视频id为1的带播单信息的视频信息-Array]{}",array.toJSONString());
+        List<Video> videoList = videoCondition.getCompositList();
+        logger.info("[查询视频id为1的带播单信息的视频信息-List]{}",videoList);
     }
 
     @Test

@@ -608,37 +608,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
                     if (field.getAnnotation(Ignore.class) != null) {
                         continue;
                     }
-                    String columnName = "t_" + StringUtil.Camel2Underline(field.getName());
-                    String type = field.getType().getSimpleName().toLowerCase();
-                    //根据类型进行映射
-                    switch (type) {
-                        case "int": {
-                            o.put(field.getName(), resultSet.getInt(columnName));
-                        }
-                        break;
-                        case "integer": {
-                            o.put(field.getName(), resultSet.getInt(columnName));
-                        }
-                        break;
-                        case "long": {
-                            o.put(field.getName(), resultSet.getLong(columnName));
-                        }
-                        ;
-                        break;
-                        case "boolean": {
-                            o.put(field.getName(), resultSet.getBoolean(columnName));
-                        }
-                        ;
-                        break;
-                        case "date": {
-                            o.put(field.getName(), resultSet.getDate(columnName));
-                        }
-                        ;
-                        break;
-                        default: {
-                            o.put(field.getName(), resultSet.getObject(columnName));
-                        }
-                    }
+                    setValue("t",field,o,resultSet);
                 }
 
                 for (AbstractCondition.AbstractSubCondition subCondition : subConditionList) {
@@ -651,32 +621,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
                         if (field.getAnnotation(Ignore.class) != null) {
                             continue;
                         }
-                        String columnName = subCondition.tableAliasName + "_" + StringUtil.Camel2Underline(field.getName());
-                        String type = field.getType().getSimpleName().toLowerCase();
-                        //根据类型进行映射
-                        switch (type) {
-                            case "int":
-                            case "integer": {
-                                subObject.put(field.getName(), resultSet.getInt(columnName));
-                            }
-                            break;
-                            case "long": {
-                                subObject.put(field.getName(), resultSet.getLong(columnName));
-                            }
-                            ;
-                            break;
-                            case "boolean": {
-                                subObject.put(field.getName(), resultSet.getBoolean(columnName));
-                            }
-                            ;
-                            break;
-//                            case "date":{
-//                                subObject.put(plainColumnName,resultSet.getDate(columnName));
-//                            };break;
-                            default: {
-                                subObject.put(field.getName(), resultSet.getObject(columnName));
-                            }
-                        }
+                        setValue(subCondition.tableAliasName,field,subObject,resultSet);
                     }
                     o.put(ReflectionUtil.getCompositField(_class, subCondition._class, subCondition.compositField).getName(), subObject);
                 }
@@ -831,7 +776,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
      */
     protected void addJoinTableStatement() {
         for (AbstractSubCondition abstractSubCondition : subConditionList) {
-            sqlBuilder.append("join `" + SQLUtil.classTableMap.get(abstractSubCondition._class.getName()) + "` as " + abstractSubCondition.tableAliasName + " on t." + StringUtil.Camel2Underline(abstractSubCondition.primaryField) + " = " + StringUtil.Camel2Underline(abstractSubCondition.tableAliasName) + "." + StringUtil.Camel2Underline(abstractSubCondition.joinTableField) + " ");
+            sqlBuilder.append(abstractSubCondition.join+" `" + SQLUtil.classTableMap.get(abstractSubCondition._class.getName()) + "` as " + abstractSubCondition.tableAliasName + " on t." + StringUtil.Camel2Underline(abstractSubCondition.primaryField) + " = " + StringUtil.Camel2Underline(abstractSubCondition.tableAliasName) + "." + StringUtil.Camel2Underline(abstractSubCondition.joinTableField) + " ");
         }
     }
 
@@ -897,6 +842,30 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
         parameterIndex = 1;
     }
 
+    /**设置属性值*/
+    private void setValue(String tableAlias,Field field,JSONObject o,ResultSet resultSet) throws SQLException {
+        String columnName = tableAlias+"_" + StringUtil.Camel2Underline(field.getName());
+        String type = field.getType().getSimpleName().toLowerCase();
+        switch (type) {
+            case "int":
+            case "integer": {
+                o.put(field.getName(), resultSet.getInt(columnName));
+            }
+            break;
+            case "long": {
+                o.put(field.getName(), resultSet.getLong(columnName));
+            }
+            break;
+            case "boolean": {
+                o.put(field.getName(), resultSet.getBoolean(columnName));
+            }
+            break;
+            default: {
+                o.put(field.getName(), resultSet.getObject(columnName));
+            }
+        }
+    }
+
     private void addINQuery(String tableAliasName, String field, Object[] values, String in) {
         if (values[0] instanceof String) {
             for (int i = 0; i < values.length; i++) {
@@ -914,14 +883,15 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
     }
 
     class AbstractSubCondition<T> implements SubCondition<T> {
-        private Class<T> _class;
-        private String tableAliasName;
-        private String primaryField;
-        private String joinTableField;
-        private String compositField;
-        private StringBuilder whereBuilder = new StringBuilder();
-        private List parameterList = new ArrayList();
-        private Condition condition;
+        protected Class<T> _class;
+        protected String tableAliasName;
+        protected String primaryField;
+        protected String joinTableField;
+        protected String compositField;
+        protected StringBuilder whereBuilder = new StringBuilder();
+        protected List parameterList = new ArrayList();
+        protected Condition condition;
+        protected String join = "join";
 
         public AbstractSubCondition(Class<T> _class, String tableAliasName, String primaryField, String joinTableField, String compositField, Condition condition) {
             this._class = _class;
@@ -930,6 +900,18 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
             this.joinTableField = joinTableField;
             this.compositField = compositField;
             this.condition = condition;
+        }
+
+        @Override
+        public SubCondition leftJoin() {
+            join = "left outer join";
+            return this;
+        }
+
+        @Override
+        public SubCondition rightJoin() {
+            join = "right outer join";
+            return this;
         }
 
         @Override
@@ -1035,6 +1017,17 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
         @Override
         public Condition done() {
             return this.condition;
+        }
+    }
+
+    class SqliteSubCondition<T> extends AbstractSubCondition<T> {
+        public SqliteSubCondition(Class<T> _class, String tableAliasName, String primaryField, String joinTableField, String compositField, Condition condition) {
+            super(_class, tableAliasName, primaryField, joinTableField, compositField, condition);
+        }
+
+        @Override
+        public SubCondition rightJoin() {
+            throw new UnsupportedOperationException("RIGHT and FULL OUTER JOINs are not currently supported");
         }
     }
 }

@@ -1,5 +1,10 @@
 [
   {
+    "table": "user@user_talk",
+    "rows": [
+    ]
+  },
+  {
     "table": "user@user",
     "rows": [
       {
