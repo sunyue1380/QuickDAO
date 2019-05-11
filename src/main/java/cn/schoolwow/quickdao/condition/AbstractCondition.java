@@ -1,6 +1,7 @@
 package cn.schoolwow.quickdao.condition;
 
 import cn.schoolwow.quickdao.annotation.Ignore;
+import cn.schoolwow.quickdao.dao.AbstractDAO;
 import cn.schoolwow.quickdao.domain.PageVo;
 import cn.schoolwow.quickdao.util.ReflectionUtil;
 import cn.schoolwow.quickdao.util.SQLUtil;
@@ -75,6 +76,8 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
      * 数据源
      */
     protected transient DataSource dataSource;
+    /**存放关联的DAO对象*/
+    protected transient AbstractDAO abstractDAO;
 
     /**
      * 构建sql语句
@@ -106,10 +109,11 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
 
     private static String[] patterns = new String[]{"%", "_", "[", "[^", "[!", "]"};
 
-    public AbstractCondition(Class<T> _class, DataSource dataSource) {
+    public AbstractCondition(Class<T> _class, DataSource dataSource, AbstractDAO abstractDAO) {
         this._class = _class;
         this.tableName = "`" + SQLUtil.classTableMap.get(_class.getName()) + "`";
         this.dataSource = dataSource;
+        this.abstractDAO = abstractDAO;
     }
 
     @Override
@@ -395,7 +399,8 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
 
     @Override
     public Condition addColumn(String field) {
-        columnBuilder.append("t.`" + StringUtil.Camel2Underline(field) + "`,");
+        field = StringUtil.Camel2Underline(field);
+        columnBuilder.append("t.`" + field + "` as `t_" + field + "`,");
         return this;
     }
 
@@ -481,8 +486,9 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
         sql = sqlBuilder.toString().replaceAll("\\s+", " ");
 
         long effect = -1;
-        try (Connection connection = dataSource.getConnection();
-             PreparedStatement ps = connection.prepareStatement(sql);) {
+        try {
+            Connection connection = abstractDAO.getConnection();
+            PreparedStatement ps = connection.prepareStatement(sql);
             for (Object parameter : updateParameterList) {
                 ps.setObject(parameterIndex++, parameter);
                 replaceParameter(parameter);
@@ -491,7 +497,11 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
             addJoinTableParameters(ps);
             logger.debug("[Update]执行SQL:{}", sql);
             effect = ps.executeUpdate();
-        } catch (SQLException e) {
+            ps.close();
+            if(!abstractDAO.startTranscation){
+                connection.close();
+            }
+        }catch (SQLException e){
             e.printStackTrace();
         }
         return effect;
@@ -507,12 +517,17 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
         sql = sqlBuilder.toString().replaceAll("\\s+", " ");
 
         long effect = -1;
-        try (Connection connection = dataSource.getConnection();
-             PreparedStatement ps = connection.prepareStatement(sql);) {
+        try {
+            Connection connection = abstractDAO.getConnection();
+            PreparedStatement ps = connection.prepareStatement(sql);
             addMainTableParameters(ps);
             addJoinTableParameters(ps);
             logger.debug("[Delete]执行SQL:{}", sql);
             effect = ps.executeUpdate();
+            ps.close();
+            if(!abstractDAO.startTranscation){
+                connection.close();
+            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -548,12 +563,109 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
              PreparedStatement ps = connection.prepareStatement(sql);) {
             addMainTableParameters(ps);
             addJoinTableParameters(ps);
-            logger.debug("[getList]执行SQL:{}", sql);
+            int count = (int) count();
+            logger.debug("[getArray]执行SQL:{}", sql);
             ResultSet resultSet = ps.executeQuery();
-            JSONArray array = ReflectionUtil.mappingResultSetToJSONArray(resultSet, "t", (int) count());
+            JSONArray array = ReflectionUtil.mappingResultSetToJSONArray(resultSet, "t", count);
             ps.close();
             return array;
         } catch (SQLException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    @Override
+    public <E> List<E> getValueList(Class<E> _class, String column) {
+        assureDone();
+        sqlBuilder.setLength(0);
+        sqlBuilder.append("select " + distinct + " " + "t.`" + StringUtil.Camel2Underline(column) + "` from " + tableName + " as t ");
+        addJoinTableStatement();
+        addWhereStatement();
+        sqlBuilder.append(" " + orderByBuilder.toString() + " " + limit);
+        sql = sqlBuilder.toString().replaceAll("\\s+", " ");
+
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sql);) {
+            addMainTableParameters(ps);
+            addJoinTableParameters(ps);
+            int count = (int) count();
+            logger.debug("[getValueList]执行SQL:{}", sql);
+            ResultSet resultSet = ps.executeQuery();
+            List<E> instanceList = ReflectionUtil.mappingSingleResultToList(resultSet, count, _class);
+            ps.close();
+            return instanceList;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    @Override
+    public JSONArray getAggerateList() {
+        assureDone();
+        sqlBuilder.setLength(0);
+        sqlBuilder.append("select " + distinct + " ");
+        if (columnBuilder.toString().length() > 0) {
+            sqlBuilder.append(columnBuilder.toString() + ",");
+        }
+        sqlBuilder.append(aggerateColumnBuilder.toString() + " from " + tableName + " as t ");
+        addJoinTableStatement();
+        addWhereStatement();
+        sqlBuilder.append(" "+groupByBuilder.toString() + " " + havingBuilder.toString() + " " + orderByBuilder.toString() + " " + limit);
+        sql = sqlBuilder.toString().replaceAll("\\s+", " ");
+
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sql);) {
+            addMainTableParameters(ps);
+            addJoinTableParameters(ps);
+            logger.debug("[getAggerateList]执行SQL:{}", sql);
+            JSONArray array = new JSONArray();
+            ResultSet resultSet = ps.executeQuery();
+            ResultSetMetaData metaData = resultSet.getMetaData();
+            int columnCount = metaData.getColumnCount();
+            while (resultSet.next()) {
+                JSONObject o = new JSONObject();
+                for (int i = 1; i <= columnCount; i++) {
+                    o.put(metaData.getColumnName(i).toLowerCase(), resultSet.getString(i));
+                }
+                array.add(o);
+            }
+            resultSet.close();
+            ps.close();
+            connection.close();
+            return array;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    @Override
+    public List<T> getPartList() {
+        if (columnBuilder.length() == 0) {
+            throw new IllegalArgumentException("请先调用addColumn()函数!");
+        }
+        assureDone();
+        sqlBuilder.setLength(0);
+        sqlBuilder.append("select " + distinct + " " + columnBuilder.toString() + " from " + tableName + " as t ");
+        addJoinTableStatement();
+        addWhereStatement();
+        sqlBuilder.append(" " + orderByBuilder.toString() + " " + limit);
+        sql = sqlBuilder.toString().replaceAll("\\s+", " ");
+
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement ps = connection.prepareStatement(sql);) {
+            addMainTableParameters(ps);
+            addJoinTableParameters(ps);
+            int count = (int) count();
+            logger.debug("[getPartList]执行SQL:{}", sql);
+            ResultSet resultSet = ps.executeQuery();
+            JSONArray array = ReflectionUtil.mappingResultSetToJSONArray(resultSet, "t", count);
+            List<T> instanceList = array.toJavaList(_class);
+            ps.close();
+            return instanceList;
+        } catch (Exception e) {
             e.printStackTrace();
             return null;
         }
@@ -567,7 +679,14 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
     }
 
     @Override
-    public PageVo<T> getPagingCompositList() {
+    public PageVo<T> getPartPagingList(){
+        getPageVo();
+        pageVo.setList(getPartList());
+        return pageVo;
+    }
+
+    @Override
+    public PageVo<T> getCompositPagingList() {
         getPageVo();
         pageVo.setList(getCompositList());
         return pageVo;
@@ -597,9 +716,10 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
              PreparedStatement ps = connection.prepareStatement(sql);) {
             addMainTableParameters(ps);
             addJoinTableParameters(ps);
-            logger.debug("[getList]执行SQL:{}", sql);
+            int count = (int) count();
+            logger.debug("[getCompositArray]执行SQL:{}", sql);
             ResultSet resultSet = ps.executeQuery();
-            JSONArray array = new JSONArray((int) count());
+            JSONArray array = new JSONArray(count);
 
             Field[] fields = ReflectionUtil.getFields(_class);
             while (resultSet.next()) {
@@ -635,99 +755,6 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
         return null;
     }
 
-    @Override
-    public List<T> getPartList() {
-        if (columnBuilder.length() == 0) {
-            throw new IllegalArgumentException("请先调用addColumn()函数!");
-        }
-        assureDone();
-        sqlBuilder.setLength(0);
-        sqlBuilder.append("select " + distinct + " " + columnBuilder.toString() + " from " + tableName + " as t ");
-        addJoinTableStatement();
-        addWhereStatement();
-        sqlBuilder.append(" " + orderByBuilder.toString() + " " + limit);
-        sql = sqlBuilder.toString().replaceAll("\\s+", " ");
-
-        try (Connection connection = dataSource.getConnection();
-             PreparedStatement ps = connection.prepareStatement(sql);) {
-            addMainTableParameters(ps);
-            addJoinTableParameters(ps);
-            logger.debug("[getValueList]执行SQL:{}", sql);
-            ResultSet resultSet = ps.executeQuery();
-            List<T> instanceList = getArray().toJavaList(_class);
-            ps.close();
-            return instanceList;
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
-        }
-    }
-
-    @Override
-    public <E> List<E> getValueList(Class<E> _class, String column) {
-        assureDone();
-        sqlBuilder.setLength(0);
-        sqlBuilder.append("select " + distinct + " " + "t.`" + StringUtil.Camel2Underline(column) + "` from " + tableName + " as t ");
-        addJoinTableStatement();
-        addWhereStatement();
-        sqlBuilder.append(" " + orderByBuilder.toString() + " " + limit);
-        sql = sqlBuilder.toString().replaceAll("\\s+", " ");
-
-        try (Connection connection = dataSource.getConnection();
-             PreparedStatement ps = connection.prepareStatement(sql);) {
-            addMainTableParameters(ps);
-            addJoinTableParameters(ps);
-            logger.debug("[getValueList]执行SQL:{}", sql);
-            ResultSet resultSet = ps.executeQuery();
-            List<E> instanceList = ReflectionUtil.mappingSingleResultToList(resultSet, (int) count(), _class);
-            ps.close();
-            return instanceList;
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
-        }
-    }
-
-    @Override
-    public JSONArray getAggerateList() {
-        assureDone();
-        sqlBuilder.setLength(0);
-        sqlBuilder.append("select " + distinct + " ");
-        if (columnBuilder.toString().length() > 0) {
-            sqlBuilder.append(columnBuilder.toString() + ",");
-        }
-        sqlBuilder.append(aggerateColumnBuilder.toString() + " from " + tableName + " as t ");
-        addJoinTableStatement();
-        addWhereStatement();
-        sqlBuilder.append(" "+groupByBuilder.toString() + " " + havingBuilder.toString() + " " + orderByBuilder.toString() + " " + limit);
-        sql = sqlBuilder.toString().replaceAll("\\s+", " ");
-
-        try (Connection connection = dataSource.getConnection();
-             PreparedStatement ps = connection.prepareStatement(sql);) {
-            addMainTableParameters(ps);
-            addJoinTableParameters(ps);
-            logger.debug("[getList]执行SQL:{}", sql);
-            JSONArray array = new JSONArray();
-            ResultSet resultSet = ps.executeQuery();
-            ResultSetMetaData metaData = resultSet.getMetaData();
-            int columnCount = metaData.getColumnCount();
-            while (resultSet.next()) {
-                JSONObject o = new JSONObject();
-                for (int i = 1; i <= columnCount; i++) {
-                    o.put(metaData.getColumnName(i).toLowerCase(), resultSet.getString(i));
-                }
-                array.add(o);
-            }
-            resultSet.close();
-            ps.close();
-            connection.close();
-            return array;
-        } catch (SQLException e) {
-            e.printStackTrace();
-            return null;
-        }
-    }
-
     public AbstractCondition clone() throws CloneNotSupportedException {
         try {
             /* 写入当前对象的二进制流 */
@@ -739,6 +766,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
             ObjectInputStream ois = new ObjectInputStream(bis);
             AbstractCondition abstractCondition = (AbstractCondition) ois.readObject();
             abstractCondition.dataSource = this.dataSource;
+            abstractCondition.abstractDAO = this.abstractDAO;
             return abstractCondition;
         } catch (IOException e) {
             e.printStackTrace();
@@ -782,7 +810,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
 
     protected void addWhereStatement() {
         //添加查询条件
-        sqlBuilder.append(whereBuilder.toString());
+        sqlBuilder.append(" "+whereBuilder.toString());
         for (AbstractSubCondition abstractSubCondition : subConditionList) {
             if (abstractSubCondition.whereBuilder.length() > 0) {
                 sqlBuilder.append(" and " + abstractSubCondition.whereBuilder.toString() + " ");
@@ -811,13 +839,10 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
         switch (type) {
             case "int": {
             }
-            ;
             case "integer": {
             }
-            ;
             case "long": {
             }
-            ;
             case "boolean": {
                 sql = sql.replaceFirst("\\?", parameter.toString());
             }

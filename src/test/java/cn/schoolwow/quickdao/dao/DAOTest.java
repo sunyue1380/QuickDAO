@@ -1,21 +1,14 @@
 package cn.schoolwow.quickdao.dao;
 
-import cn.schoolwow.quickdao.QuickDAO;
-import cn.schoolwow.quickdao.entity.WatchLater;
+import cn.schoolwow.quickdao.QuickDAOTest;
 import cn.schoolwow.quickdao.entity.logic.Comment;
-import cn.schoolwow.quickdao.entity.logic.PlayHistory;
 import cn.schoolwow.quickdao.entity.logic.PlayList;
-import cn.schoolwow.quickdao.entity.logic.Video;
 import cn.schoolwow.quickdao.entity.user.User;
-import cn.schoolwow.quickdao.entity.user.UserFollow;
 import cn.schoolwow.quickdao.entity.user.UserPlayList;
 import cn.schoolwow.quickdao.util.SQLUtil;
-import cn.schoolwow.quickdao.util.ValidateUtil;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
-import org.apache.commons.dbcp.BasicDataSource;
-import org.h2.store.fs.FileUtils;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -23,85 +16,25 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import sun.java2d.pipe.SpanShapeRenderer;
 
-import javax.sql.DataSource;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.*;
 
 @RunWith(Parameterized.class)
-public class DAOTest {
+public class DAOTest extends QuickDAOTest{
     Logger logger = LoggerFactory.getLogger(DAOTest.class);
-    protected DataSource dataSource;
-    protected DAO dao;
 
-    @Parameterized.Parameters
-    public static Collection prepareData(){
-        BasicDataSource mysqlDataSource = new BasicDataSource();
-        mysqlDataSource.setDriverClassName("com.mysql.jdbc.Driver");
-        mysqlDataSource.setUrl("jdbc:mysql://127.0.0.1:3306/quickdao");
-        mysqlDataSource.setUsername("root");
-        mysqlDataSource.setPassword("123456");
-
-        BasicDataSource sqliteDataSource = new BasicDataSource();
-        sqliteDataSource.setDriverClassName("org.sqlite.JDBC");
-        sqliteDataSource.setUrl("jdbc:sqlite:d:/db/quickdao_sqlite.db");
-
-        BasicDataSource h2DataSource = new BasicDataSource();
-        h2DataSource.setDriverClassName("org.h2.Driver");
-        h2DataSource.setUrl("jdbc:h2:d:/db/quickdao_h2.db;mode=MYSQL");
-
-        //各种数据库产品
-//        DataSource[] dataSources = {h2DataSource};
-        DataSource[] dataSources = {mysqlDataSource,sqliteDataSource,h2DataSource};
-        Object[][] data = new Object[dataSources.length][2];
-        for(int i=0;i<dataSources.length;i++){
-            data[i][0] = QuickDAO.newInstance().dataSource(dataSources[i])
-                    .packageName("cn.schoolwow.quickdao.entity")
-                    .packageName("cn.schoolwow.quickdao.domain","d")
-                    .autoCreateTable(false)
-//                    .ignoreClass(WatchLater.class)
-//                    .ignorePackageName("cn.schoolwow.quickdao.entity.logic")
-                    .build();
-            data[i][1] = dataSources[i];
-        };
-        return Arrays.asList(data);
-    }
-
-    public DAOTest(DAO dao,DataSource dataSource){
-        this.dao = dao;
-        this.dataSource = dataSource;
+    public DAOTest(DAO dao) {
+        super(dao);
     }
 
     @Before
     public void before() throws FileNotFoundException, ClassNotFoundException {
-        File file = new File("data.json");
-        Scanner scanner = new Scanner(file);
-        StringBuilder sb = new StringBuilder();
-        while(scanner.hasNext()){
-            sb.append(scanner.nextLine());
-        }
-        scanner.close();
-        JSONArray array = JSON.parseArray(sb.toString());
-        for(int i=0;i<array.size();i++){
-            JSONObject o = array.getJSONObject(i);
-            Set<Map.Entry<String,String>> entrySet = SQLUtil.classTableMap.entrySet();
-            for(Map.Entry<String,String> entry:entrySet){
-                if(entry.getValue().equals(o.getString("table"))){
-                    Class _class = Class.forName(entry.getKey());
-                    dao.drop(_class);
-                    dao.create(_class);
-                    List list = o.getJSONArray("rows").toJavaList(_class);
-                    dao.save(list);
-                    break;
-                }
-            }
+        try {
+            initialDatabase(dao);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
@@ -114,12 +47,12 @@ public class DAOTest {
     public void fetch() throws Exception {
         User user = dao.fetch(User.class,1l);
         logger.debug("[获取用户id为1的记录]:{}", JSON.toJSONString(user));
-        Assert.assertNotNull(user);
+        Assert.assertNotNull("获取用户id为1的记录失败",user);
 
         //fetchNull
         user = dao.fetch(User.class,3);
         logger.debug("[获取用户id为3的记录]:{}", JSON.toJSONString(user));
-        Assert.assertNull(user);
+        Assert.assertNull("获取用户id为3的记录失败",user);
     }
 
     @Test
@@ -149,13 +82,14 @@ public class DAOTest {
         user.setPassword("123456");
         long effect = dao.save(user);
         logger.debug("[把用户名为sunyue@schoolwow.cn的密码改为123456]:{}",effect);
-        Assert.assertTrue(user.getUid()==1);
+        Assert.assertTrue(effect>0);
 
         //根据id更新
         Comment comment = dao.fetch(Comment.class,1);
         comment.setAuthor("sunyue");
-        dao.save(comment);
-        logger.debug("[更新id为1的评论,设置author为sunyue]{}",effect);
+        effect = dao.save(comment);
+        logger.debug("[更新id为1的评论,设置author为sunyue]影响:{}",effect);
+        Assert.assertTrue(effect>0);
 
         //添加一条新的Comment记录
         Comment newComment = new Comment();
@@ -166,7 +100,7 @@ public class DAOTest {
         newComment.setVideoId(1);
         effect = dao.save(newComment);
         logger.debug("[添加一条新的评论]影响:{},id:{}",effect,newComment.getId());
-        Assert.assertTrue(newComment.getId()>1);
+        Assert.assertTrue(effect>0);
     }
 
     @Test
@@ -175,7 +109,9 @@ public class DAOTest {
         for(int i=0;i<users.length;i++){
             users[i].setPassword("123456");
         }
-        logger.info("[批量将用户id为1和2的用户密码更改为123456]影响:{}",dao.save(users));
+        long effect = dao.save(users);
+        logger.info("[批量将用户id为1和2的用户密码更改为123456]影响:{}",effect);
+        Assert.assertTrue(effect>0);
 
         //根据id更新
         Comment comment = dao.fetch(Comment.class,1);
@@ -190,22 +126,30 @@ public class DAOTest {
         newComment.setVideoId(1);
 
         Comment[] comments = {comment,newComment};
-        logger.debug("[批量更新评论]影响:{}",dao.save(comments));
+        effect = dao.save(comments);
+        logger.debug("[批量更新评论]影响:{}",effect);
+        Assert.assertTrue(effect>0);
     }
 
     @Test
     public void delete() throws Exception {
-        logger.info("[删除用户id为1的记录]影响:{}",dao.delete(User.class,1));
+        long effect = dao.delete(User.class,1);
+        logger.info("[删除用户id为1的记录]影响:{}",effect);
+        Assert.assertTrue(effect>0);
     }
 
     @Test
     public void deleteProperty() throws Exception {
-        logger.info("[删除用户名为sunyue@schoolwow.cn的记录]影响:{}",dao.delete(User.class,"username","sunyue@schoolwow.cn"));
+        long effect = dao.delete(User.class,"username","sunyue@schoolwow.cn");
+        logger.info("[删除用户名为sunyue@schoolwow.cn的记录]影响:{}",effect);
+        Assert.assertTrue(effect>0);
     }
 
     @Test
     public void clear() throws Exception {
-        logger.info("[清空User表]影响:{}",dao.clear(User.class));
+        long effect = dao.clear(User.class);
+        logger.info("[清空User表]影响:{}",effect);
+        Assert.assertTrue(effect>0);
     }
 
     @Test

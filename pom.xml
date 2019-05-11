@@ -128,6 +128,12 @@
           <exclude>**/*.class</exclude>
         </excludes>
       </resource>
+      <resource>
+        <directory>${basedir}</directory>
+        <includes>
+          <include>logback.xml</include>
+        </includes>
+      </resource>
     </resources>
   </build>
 

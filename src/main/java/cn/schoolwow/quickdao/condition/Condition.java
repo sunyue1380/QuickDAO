@@ -186,31 +186,6 @@ public interface Condition<T> {
      * */
     JSONArray getArray();
     /**
-     * <p>返回符合条件的数据库分页记录</p>
-     * <p><b>前置条件</b>:请先调用<b>{@link Condition#page(int, int)} </b>方法</p>
-     * */
-    PageVo<T> getPagingList();
-    /**
-     * <p>返回符合条件的数据库分页记录,同时返回关联查询方法({@link Condition#joinTable(Class, String, String)})所关联的字段信息</p>
-     * <p><b>前置条件</b>:请先调用<b>{@link Condition#page(int, int)} </b>方法</p>
-     * */
-    PageVo<T> getPagingCompositList();
-    /**
-     * <p>返回符合条件的数据库记录,同时返回关联查询方法({@link Condition#joinTable(Class, String, String)})所关联的字段信息</p>
-     * <p><b>注意</b>:若未调用过joinTable方法,则该方法不会返回复杂对象字段信息</p>
-     * */
-    List<T> getCompositList();
-    /**
-     * <p>返回符合条件的数据库记录,同时返回关联查询方法({@link Condition#joinTable(Class, String, String)})所关联的字段信息</p>
-     * <p><b>注意</b>:若未调用过joinTable方法,则该方法不会返回复杂对象字段信息</p>
-     * */
-    JSONArray getCompositArray();
-    /**
-     * <p>返回指定的部分字段的数据库记录</p>
-     * <p><b>前置条件</b>:请先调用<b>{@link Condition#addColumn(String)} </b></p>
-     * */
-    List<T> getPartList();
-    /**
      * <p>返回指定单个字段的集合</p>
      * @param _class 返回字段类型
      * @param column 待返回的字段
@@ -222,6 +197,36 @@ public interface Condition<T> {
      * <p>若调用了{@link Condition#addColumn(String)} 则会返回addColumn所指定的字段</p>
      * */
     JSONArray getAggerateList();
+    /**
+     * <p>返回指定的部分字段的数据库记录</p>
+     * <p><b>前置条件</b>:请先调用<b>{@link Condition#addColumn(String)} </b></p>
+     * */
+    List<T> getPartList();
+    /**
+     * <p>返回符合条件的数据库分页记录</p>
+     * <p><b>前置条件</b>:请先调用<b>{@link Condition#page(int, int)} </b>方法</p>
+     * */
+    PageVo<T> getPagingList();
+    /**
+     * <p>返回指定的部分字段的数据库记录</p>
+     * <p><b>前置条件</b>:请先调用<b>{@link Condition#addColumn(String)} </b></p>
+     * */
+    PageVo<T> getPartPagingList();
+    /**
+     * <p>返回符合条件的数据库分页记录,同时返回关联查询方法({@link Condition#joinTable(Class, String, String)})所关联的字段信息</p>
+     * <p><b>前置条件</b>:请先调用<b>{@link Condition#page(int, int)} </b>方法</p>
+     * */
+    PageVo<T> getCompositPagingList();
+    /**
+     * <p>返回符合条件的数据库记录,同时返回关联查询方法({@link Condition#joinTable(Class, String, String)})所关联的字段信息</p>
+     * <p><b>注意</b>:若未调用过joinTable方法,则该方法不会返回复杂对象字段信息</p>
+     * */
+    List<T> getCompositList();
+    /**
+     * <p>返回符合条件的数据库记录,同时返回关联查询方法({@link Condition#joinTable(Class, String, String)})所关联的字段信息</p>
+     * <p><b>注意</b>:若未调用过joinTable方法,则该方法不会返回复杂对象字段信息</p>
+     * */
+    JSONArray getCompositArray();
     /**
      * <p>克隆该Condition对象</p>
      * */

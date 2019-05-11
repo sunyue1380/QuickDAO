@@ -213,11 +213,16 @@ public class ReflectionUtil {
     public static JSONArray mappingResultSetToJSONArray(ResultSet resultSet,String tableNameAlias,int count) throws SQLException {
         ResultSetMetaData metaData = resultSet.getMetaData();
         int columnCount = metaData.getColumnCount();
+        String[] columnNames = new String[columnCount];
+        for(int i=1;i<=columnNames.length;i++){
+            String label = metaData.getColumnLabel(i);
+            columnNames[i-1] = StringUtil.Underline2Camel(label.substring(label.indexOf("_")+1));
+        }
         JSONArray array = new JSONArray(count);
         while(resultSet.next()){
             JSONObject o = new JSONObject();
             for(int i=1;i<=columnCount;i++){
-                o.put(StringUtil.Underline2Camel(metaData.getColumnLabel(i).toLowerCase().substring(tableNameAlias.length()+1)),resultSet.getString(i));
+                o.put(columnNames[i-1],resultSet.getString(i));
             }
             array.add(o);
         }

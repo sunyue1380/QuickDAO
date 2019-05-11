@@ -1,5 +1,6 @@
 package cn.schoolwow.quickdao.condition;
 
+import cn.schoolwow.quickdao.dao.AbstractDAO;
 import cn.schoolwow.quickdao.util.StringUtil;
 
 import javax.sql.DataSource;
@@ -9,8 +10,8 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 
 public class SqliteCondition extends AbstractCondition{
-    public SqliteCondition(Class _class, DataSource dataSource) {
-        super(_class, dataSource);
+    public SqliteCondition(Class _class, DataSource dataSource, AbstractDAO abstractDAO) {
+        super(_class, dataSource,abstractDAO);
     }
 
     @Override

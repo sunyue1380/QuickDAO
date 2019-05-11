@@ -1,6 +1,5 @@
 package cn.schoolwow.quickdao.dao;
 
-import cn.schoolwow.quickdao.QuickDAO;
 import cn.schoolwow.quickdao.annotation.*;
 import cn.schoolwow.quickdao.condition.AbstractCondition;
 import cn.schoolwow.quickdao.condition.Condition;
@@ -35,7 +34,8 @@ public abstract class AbstractDAO implements DAO {
     protected Map<String, String> fieldMapping = new HashMap<String, String>();
     protected DataSource dataSource;
     private Connection connection;
-    private boolean startTranscation = false;
+    /**是否开启事务*/
+    public boolean startTranscation = false;
 
     private JSONArray entityList = null;
 
@@ -145,9 +145,9 @@ public abstract class AbstractDAO implements DAO {
     public <T> Condition<T> query(Class<T> _class) {
         //根据类型返回对应
         if(this instanceof SQLiteDAO||this instanceof H2DAO){
-            return new SqliteCondition(_class,dataSource);
+            return new SqliteCondition(_class,dataSource,this);
         }else{
-            return new AbstractCondition<>(_class, dataSource);
+            return new AbstractCondition<>(_class, dataSource,this);
         }
     }
 
@@ -336,11 +336,23 @@ public abstract class AbstractDAO implements DAO {
     }
 
     /**开启事务*/
+    @Override
     public void startTransaction(){
         startTranscation = true;
+        try {
+            connection = getConnection();
+        } catch (SQLException e) {
+            e.printStackTrace();
+            try {
+                connection.close();
+            } catch (SQLException e1) {
+                e1.printStackTrace();
+            }
+        }
     }
 
     /**设置保存点*/
+    @Override
     public Savepoint setSavePoint(String name){
         if(connection==null){
             return null;
@@ -354,6 +366,7 @@ public abstract class AbstractDAO implements DAO {
     }
 
     /**事务回滚*/
+    @Override
     public void rollback(){
         if(connection==null){
             return;
@@ -366,6 +379,7 @@ public abstract class AbstractDAO implements DAO {
     }
 
     /**事务回滚*/
+    @Override
     public void rollback(Savepoint savePoint){
         if(connection==null){
             return;
@@ -378,6 +392,7 @@ public abstract class AbstractDAO implements DAO {
     }
 
     /**事务提交*/
+    @Override
     public void commit(){
         if(connection==null){
             return;
@@ -390,6 +405,7 @@ public abstract class AbstractDAO implements DAO {
     }
 
     /**结束事务*/
+    @Override
     public void endTransaction(){
         startTranscation = false;
         if(connection==null){
@@ -406,6 +422,7 @@ public abstract class AbstractDAO implements DAO {
     }
 
     /**建表*/
+    @Override
     public void create(Class _class){
         String tableName = SQLUtil.classTableMap.get(_class.getName());
         for(int i=0;i<entityList.size();i++){
@@ -424,6 +441,7 @@ public abstract class AbstractDAO implements DAO {
     }
 
     /**删表*/
+    @Override
     public void drop(Class _class){
         String tableName = SQLUtil.classTableMap.get(_class.getName());
         String sql = "drop table if exists `"+tableName+"`;";
@@ -443,7 +461,8 @@ public abstract class AbstractDAO implements DAO {
         }
     }
 
-    private Connection getConnection() throws SQLException {
+    /**仅供Condition类调用*/
+    public Connection getConnection() throws SQLException {
         //开启事务时使用同一Connection,不开启事务时从线程池中获取
         if(startTranscation){
             synchronized (this){
@@ -459,7 +478,7 @@ public abstract class AbstractDAO implements DAO {
     }
 
     /**获取实体类信息同时过滤*/
-    protected JSONArray getEntityInfo() throws ClassNotFoundException, IOException {
+    private JSONArray getEntityInfo() throws ClassNotFoundException, IOException {
         Set<String> keySet = QuickDAOConfig.packageNameMap.keySet();
         JSONArray entityList = new JSONArray();
         for(String packageName:keySet){
@@ -795,7 +814,7 @@ public abstract class AbstractDAO implements DAO {
         }
     }
 
-    protected JSONObject getValue(JSONArray array, String propertyName, String value) {
+    private JSONObject getValue(JSONArray array, String propertyName, String value) {
         for (int i = 0; i < array.size(); i++) {
             if (array.getJSONObject(i).getString(propertyName).equals(value)) {
                 return array.getJSONObject(i);

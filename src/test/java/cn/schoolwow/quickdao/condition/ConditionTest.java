@@ -1,36 +1,39 @@
 package cn.schoolwow.quickdao.condition;
 
+import cn.schoolwow.quickdao.QuickDAOTest;
 import cn.schoolwow.quickdao.dao.DAO;
-import cn.schoolwow.quickdao.dao.DAOTest;
 import cn.schoolwow.quickdao.domain.PageVo;
 import cn.schoolwow.quickdao.entity.logic.PlayHistory;
 import cn.schoolwow.quickdao.entity.logic.PlayList;
 import cn.schoolwow.quickdao.entity.logic.Video;
 import cn.schoolwow.quickdao.entity.user.User;
-import cn.schoolwow.quickdao.entity.user.UserFollow;
 import cn.schoolwow.quickdao.entity.user.UserPlayList;
-import cn.schoolwow.quickdao.entity.user.UserTalk;
+import cn.schoolwow.quickdao.util.SQLUtil;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
-import com.alibaba.fastjson.serializer.SerializeConfig;
 import com.alibaba.fastjson.serializer.SerializerFeature;
-import com.alibaba.fastjson.support.config.FastJsonConfig;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.jws.soap.SOAPBinding;
 import javax.sql.DataSource;
-import java.util.Date;
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.util.List;
+import java.util.Map;
+import java.util.Scanner;
+import java.util.Set;
 
-public class ConditionTest extends DAOTest{
+@RunWith(Parameterized.class)
+public class ConditionTest extends QuickDAOTest{
     Logger logger = LoggerFactory.getLogger(ConditionTest.class);
-
-    public ConditionTest(DAO dao, DataSource dataSource) {
-        super(dao, dataSource);
+    public ConditionTest(DAO dao) {
+        super(dao);
     }
 
     @Test
@@ -47,37 +50,6 @@ public class ConditionTest extends DAOTest{
     }
 
     @Test
-    public void testGetArray() throws Exception {
-        JSONArray userList = dao.query(User.class)
-                .distinct()
-                .addQuery("username","@")
-                .addQuery("type",">=",1)
-                .addInQuery("token",new String[]{"7a746f17a9bf4903b09b617135152c71","9204d99472c04ce7abf1bcb9773b0d49"})
-                .addNotNullQuery("lastLogin")
-                .orderByDesc("uid")
-                .page(1,10)
-                .getArray();
-        logger.info("[测试查询功能]查询结果:{}", userList.toJSONString());
-        Assert.assertTrue(userList.size()==2);
-    }
-
-    @Test
-    public void testSubCondition() throws Exception {
-        List<UserFollow> userFollowList = dao.query(UserFollow.class)
-                .joinTable(User.class,"userId","uid","user")
-                .addInQuery("uid",new Long[]{1l})
-                .done()
-                .joinTable(User.class,"followerId","uid","followUser")
-                .addInQuery("uid",new Long[]{2l})
-                .done()
-                .distinct()
-                .page(1,10)
-                .getCompositList();
-        logger.info("[测试外键关联查询]结果:{}",JSON.toJSONString(userFollowList));
-        Assert.assertTrue(userFollowList.size()==1);
-    }
-
-    @Test
     public void testClone() throws Exception {
         Condition<User> condition = dao.query(User.class)
                 .addQuery("username","@")
@@ -86,9 +58,8 @@ public class ConditionTest extends DAOTest{
                 .addNotNullQuery("lastLogin")
                 .orderByDesc("uid")
                 .page(1,10);
-
         Condition<User> cloneCondition = condition.clone();
-        logger.info("[测试克隆功能]{}",cloneCondition);
+        logger.info("[clone]{}",cloneCondition);
         Assert.assertTrue(condition.count()==cloneCondition.count());
     }
 
@@ -105,7 +76,7 @@ public class ConditionTest extends DAOTest{
         PageVo<User> userPageVo = dao.query(User.class)
                 .addQuery(queryCondition)
                 .getPagingList();
-        logger.info("[测试查询功能]查询结果:{}",JSON.toJSONString(userPageVo));
+        logger.info("[自定义查询条件]查询结果:{}",JSON.toJSONString(userPageVo));
         Assert.assertTrue(userPageVo.getTotalSize()==2);
     }
 
@@ -119,46 +90,39 @@ public class ConditionTest extends DAOTest{
                 .orderByDesc("uid")
                 .page(1,10)
                 .getList();
-        logger.info("[测试查询功能]查询结果:{}", JSON.toJSONString(userList));
+        logger.info("[实例参数查询]查询结果:{}", JSON.toJSONString(userList));
         Assert.assertTrue(userList.size()==2);
     }
 
     @Test
     public void testAddQuery() throws Exception {
-        List<User> userList = dao.query(User.class)
+        Condition<User> userCondition = dao.query(User.class)
                 .distinct()
                 .addQuery("username","@")
                 .addQuery("type",">=",1)
                 .addInQuery("token",new String[]{"7a746f17a9bf4903b09b617135152c71","9204d99472c04ce7abf1bcb9773b0d49"})
                 .addNotNullQuery("lastLogin")
                 .orderByDesc("uid")
-                .page(1,10)
-                .getList();
-        logger.info("[测试查询功能]查询结果:{}", JSON.toJSONString(userList));
+                .page(1,10);
+        JSONArray userArray = userCondition.getArray();
+        logger.info("[Array查询]查询结果:{}", userArray.toJSONString());
+        Assert.assertTrue(userArray.size()==2);
+        List<User> userList = userCondition.getList();
+        logger.info("[List查询]查询结果:{}", JSON.toJSONString(userList));
         Assert.assertTrue(userList.size()==2);
 
-        userList = dao.query(User.class)
+        userCondition = dao.query(User.class)
                 .addNotEmptyQuery("username")
                 .addNotInQuery("username",new String[]{"1212"})
                 .addQuery("type = 1")
                 .orderByDesc("uid")
-                .limit(0,10)
-                .getList();
-        logger.info("[测试查询功能]查询结果:{}", JSON.toJSONString(userList));
+                .limit(0,10);
+        userArray = userCondition.getArray();
+        logger.info("[Array查询]查询结果:{}", userArray.toJSONString());
+        Assert.assertTrue(userArray.size()==2);
+        userList = userCondition.getList();
+        logger.info("[List查询]查询结果:{}", JSON.toJSONString(userList));
         Assert.assertTrue(userList.size()==2);
-    }
-
-    @Test
-    public void testAddUpdate() throws Exception {
-        long effect = dao.query(User.class)
-                .addQuery("username","@")
-                .addUpdate("password","123456")
-                .joinTable(UserPlayList.class,"uid","userId")
-                .addQuery("playlistId",1)
-                .done()
-                .update();
-        logger.info("[测试addUpdate功能]影响:{}",effect);
-        Assert.assertTrue(effect==1||effect==2);
     }
 
     @Test
@@ -170,13 +134,13 @@ public class ConditionTest extends DAOTest{
                 .groupBy("tv")
                 .orderBy("id")
                 .getAggerateList();
-        logger.info("[测试查询功能]查询结果:{}",array.toJSONString());
+        logger.info("[聚合查询]查询结果:{}",array.toJSONString());
         Assert.assertTrue(array.getJSONObject(0).getString("count(id)").equals("1"));
     }
 
     @Test
     public void testPartListQuery() throws Exception {
-        List<User> userList = dao.query(User.class)
+        Condition<User> userCondition = dao.query(User.class)
                 .addColumn("username")
                 .addColumn("password")
                 .addQuery("username","@")
@@ -184,10 +148,14 @@ public class ConditionTest extends DAOTest{
                 .addInQuery("token",new String[]{"7a746f17a9bf4903b09b617135152c71","9204d99472c04ce7abf1bcb9773b0d49"})
                 .addNotNullQuery("lastLogin")
                 .orderByDesc("uid")
-                .page(1,10)
-                .getPartList();
-        logger.info("[测试查询功能]查询结果:{}", JSON.toJSONString(userList, SerializerFeature.NotWriteDefaultValue));
+                .page(1,10);
+        List<User> userList = userCondition.getPartList();
+        logger.info("[部分查询]查询结果:{}", JSON.toJSONString(userList, SerializerFeature.NotWriteDefaultValue));
         Assert.assertTrue(userList.size()==2);
+
+        PageVo<User> userPageVo = userCondition.getPartPagingList();
+        logger.info("[部分分页查询]查询结果:{}", JSON.toJSONString(userPageVo, SerializerFeature.NotWriteDefaultValue));
+        Assert.assertTrue(userPageVo.getTotalSize()==2&&userPageVo.getList().get(0).getLastLogin()==null);
     }
 
     @Test
@@ -200,7 +168,7 @@ public class ConditionTest extends DAOTest{
                 .orderByDesc("uid")
                 .page(1,10)
                 .getPagingList();
-        logger.info("[测试查询功能]查询结果:{}", JSON.toJSONString(pagingList));
+        logger.info("[分页简单查询]查询结果:{}", JSON.toJSONString(pagingList));
         Assert.assertTrue(pagingList.getList().size()==2);
     }
 
@@ -210,8 +178,8 @@ public class ConditionTest extends DAOTest{
                 .joinTable(PlayList.class,"playlistId","id")
                 .done()
                 .page(1,10)
-                .getPagingCompositList();
-        logger.info("[测试查询功能]查询结果:{}", JSON.toJSONString(pagingList));
+                .getCompositPagingList();
+        logger.info("[分页复杂查询]查询结果:{}", JSON.toJSONString(pagingList));
         Assert.assertTrue(pagingList.getList().size()>0);
     }
 
@@ -225,7 +193,7 @@ public class ConditionTest extends DAOTest{
                 .orderByDesc("uid")
                 .page(1,10)
                 .getValueList(Long.class,"uid");
-        logger.info("[测试查询Value功能]查询结果:{}", JSON.toJSON(userIds));
+        logger.info("[ValueList查询]查询结果:{}", JSON.toJSON(userIds));
         Assert.assertTrue(userIds.size()==2);
     }
 
@@ -237,11 +205,10 @@ public class ConditionTest extends DAOTest{
                 .addQuery("user_id",1)
                 .done()
                 .getList();
-        logger.info("[查询用户id为1所订阅的播单]查询结果:{}", JSON.toJSON(playListList));
+        logger.info("[关联查询][查询用户id为1所订阅的播单]查询结果:{}", JSON.toJSON(playListList));
         Assert.assertTrue(playListList.size()==1);
 
         //测试多个外键关联
-        //查询用户名为sunyue@schoolwow.cn的对于视频标题为创业时代 01的播放历史
         List<PlayHistory> playHistoryList = dao.query(PlayHistory.class)
                 .joinTable(User.class,"user_id","uid")
                 .addQuery("username","sunyue@schoolwow.cn")
@@ -256,19 +223,8 @@ public class ConditionTest extends DAOTest{
                 .orderByDesc("id")
                 .done()
                 .getList();
-        logger.info("[查询用户名为sunyue@schoolwow.cn的对于视频标题为创业时代 01的播放历史]查询结果:{}", JSON.toJSON(playHistoryList));
+        logger.info("[多个外键关联查询][查询用户名为sunyue@schoolwow.cn的对于视频标题为创业时代 01的播放历史]查询结果:{}", JSON.toJSON(playHistoryList));
         Assert.assertTrue(playListList.size()==1);
-    }
-
-    @Test
-    public void testGetCompositList() throws Exception {
-        List<Video> videoList = dao.query(Video.class)
-                .addQuery("id","1")
-                .joinTable(PlayList.class,"playlist_id","id")
-                .done()
-                .getCompositList();
-        logger.info("[查询视频id为1的带播单信息的视频信息]{}",JSON.toJSONString(videoList));
-        Assert.assertTrue(videoList.get(0).getPlaylistId()>0);
     }
 
     @Test
@@ -278,9 +234,9 @@ public class ConditionTest extends DAOTest{
                 .joinTable(PlayList.class,"playlist_id","id")
                 .done();
         JSONArray array = videoCondition.getCompositArray();
-        logger.info("[查询视频id为1的带播单信息的视频信息-Array]{}",array.toJSONString());
+        logger.info("[复杂查询-Array][查询视频id为1的带播单信息的视频信息]{}",array.toJSONString());
         List<Video> videoList = videoCondition.getCompositList();
-        logger.info("[查询视频id为1的带播单信息的视频信息-List]{}",videoList);
+        logger.info("[复杂查询-List][查询视频id为1的带播单信息的视频信息]{}",videoList);
     }
 
     @Test
@@ -293,26 +249,29 @@ public class ConditionTest extends DAOTest{
                 .orderByDesc("uid")
                 .page(1,10)
                 .count();
-        logger.info("[测试Count功能]查询结果:{}",count);
+        logger.info("[Count]查询结果:{}",count);
     }
 
     @Test
     public void testUpdate() throws Exception {
-        //TODO Sqlite暂时不支持多表关联更新
+        dao.startTransaction();
         long count = dao.query(User.class)
                 .addQuery("username","@")
                 .addUpdate("password","123456")
                 .update();
-        logger.info("[测试批量更新功能]查询结果:{}",count);
+        logger.info("[批量更新]查询结果:{}",count);
+        dao.rollback();
+        dao.endTransaction();
     }
 
     @Test
     public void testDelete() throws Exception {
-        //TODO Sqlite的更新会报错,暂时不解决
+        dao.startTransaction();
         long count = dao.query(User.class)
-                .addQuery("username","@")
-                .addUpdate("password","123456")
+                .addQuery("username","quickdao")
                 .delete();
-        logger.info("[测试批量删除功能]查询结果:{}",count);
+        logger.info("[批量删除]查询结果:{}",count);
+        dao.rollback();
+        dao.endTransaction();
     }
 }
