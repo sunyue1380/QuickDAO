@@ -451,6 +451,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
         sqlBuilder.append("select count(1) from " + tableName + " as t ");
         addJoinTableStatement();
         addWhereStatement();
+        String sqlBack = sql;
         sql = sqlBuilder.toString().replaceAll("\\s+", " ");
         long count = -1;
         try (Connection connection = dataSource.getConnection();
@@ -465,6 +466,10 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
             resultSet.close();
         } catch (SQLException e) {
             e.printStackTrace();
+        }
+        //因其他方法会调用count方法,若sql已经有值,需保存之前的值
+        if(ValidateUtil.isNotEmpty(sqlBack)){
+            sql = sqlBack;
         }
         return count;
     }
