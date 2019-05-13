@@ -104,4 +104,7 @@ public interface DAO {
 
     /**删表*/
     void drop(Class _class);
+
+    /**重建表*/
+    void rebuild(Class _class);
 }

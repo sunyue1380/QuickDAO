@@ -1,6 +1,7 @@
 package cn.schoolwow.quickdao.dao;
 
 import cn.schoolwow.quickdao.QuickDAOTest;
+import cn.schoolwow.quickdao.entity.DataType;
 import cn.schoolwow.quickdao.entity.logic.Comment;
 import cn.schoolwow.quickdao.entity.logic.PlayList;
 import cn.schoolwow.quickdao.entity.user.User;
@@ -40,7 +41,7 @@ public class DAOTest extends QuickDAOTest{
 
     @Test
     public void aotoBuild() throws Exception {
-
+        dao.create(DataType.class);
     }
 
     @Test

@@ -44,9 +44,10 @@ public abstract class AbstractDAO implements DAO {
         fieldMapping.put("string", "VARCHAR(255)");
         fieldMapping.put("boolean", "BOOLEAN");
         fieldMapping.put("byte", "TINYINT");
+        fieldMapping.put("char", "char(4)");
         fieldMapping.put("short", "SMALLINT");
         fieldMapping.put("int", "INTEGER");
-        fieldMapping.put("integer", "INTEGER");
+        fieldMapping.put("integer", "INTEGER(11)");
         fieldMapping.put("long", "BIGINT");
         fieldMapping.put("float", "FLOAT(4,2)");
         fieldMapping.put("double", "DOUBLE(5,2)");
@@ -459,6 +460,13 @@ public abstract class AbstractDAO implements DAO {
                 e.printStackTrace();
             }
         }
+    }
+
+    /**删表*/
+    @Override
+    public void rebuild(Class _class){
+        drop(_class);
+        create(_class);
     }
 
     /**仅供Condition类调用*/
