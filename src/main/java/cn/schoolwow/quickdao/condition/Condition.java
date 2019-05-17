@@ -230,5 +230,5 @@ public interface Condition<T> {
     /**
      * <p>克隆该Condition对象</p>
      * */
-    Condition clone() throws CloneNotSupportedException;
+    Condition clone();
 }

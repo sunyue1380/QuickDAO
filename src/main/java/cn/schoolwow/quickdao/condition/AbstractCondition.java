@@ -760,7 +760,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
         return null;
     }
 
-    public AbstractCondition clone() throws CloneNotSupportedException {
+    public AbstractCondition clone() {
         try {
             /* 写入当前对象的二进制流 */
             ByteArrayOutputStream bos = new ByteArrayOutputStream();
@@ -912,7 +912,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
         whereBuilder.append(") ) and ");
     }
 
-    class AbstractSubCondition<T> implements SubCondition<T> {
+    class AbstractSubCondition<T> implements SubCondition<T>,Serializable {
         protected Class<T> _class;
         protected String tableAliasName;
         protected String primaryField;
@@ -920,7 +920,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
         protected String compositField;
         protected StringBuilder whereBuilder = new StringBuilder();
         protected List parameterList = new ArrayList();
-        protected Condition condition;
+        protected transient Condition condition;
         protected String join = "join";
 
         public AbstractSubCondition(Class<T> _class, String tableAliasName, String primaryField, String joinTableField, String compositField, Condition condition) {
@@ -1047,6 +1047,26 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
         @Override
         public Condition done() {
             return this.condition;
+        }
+
+        public SubCondition clone() {
+            try {
+                /* 写入当前对象的二进制流 */
+                ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                ObjectOutputStream oos = new ObjectOutputStream(bos);
+                oos.writeObject(this);
+                /* 读出二进制流产生的新对象 */
+                ByteArrayInputStream bis = new ByteArrayInputStream(bos.toByteArray());
+                ObjectInputStream ois = new ObjectInputStream(bis);
+                AbstractSubCondition subCondition = (AbstractSubCondition) ois.readObject();
+                subCondition.condition = this.condition;
+                return subCondition;
+            } catch (IOException e) {
+                e.printStackTrace();
+            } catch (ClassNotFoundException e) {
+                e.printStackTrace();
+            }
+            return null;
         }
     }
 
