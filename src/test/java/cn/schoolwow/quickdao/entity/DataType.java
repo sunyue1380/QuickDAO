@@ -1,9 +1,12 @@
 package cn.schoolwow.quickdao.entity;
 
+import cn.schoolwow.quickdao.annotation.Comment;
+
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.Date;
 
+@Comment("数据类型表")
 public class DataType {
     private long id;
     private byte _byte;

@@ -6,6 +6,7 @@ import cn.schoolwow.quickdao.annotation.Unique;
 
 import java.util.Date;
 
+@Comment("用户表")
 public class User {
     /**
      * 唯一标识

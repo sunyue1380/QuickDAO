@@ -587,6 +587,10 @@ public abstract class AbstractDAO implements DAO {
                 }
                 entity.put("tableName",SQLUtil.classTableMap.get(c.getName()));
                 entity.put("className",c.getSimpleName());
+                if(c.getDeclaredAnnotation(Comment.class)!=null){
+                    Comment comment = (Comment) c.getDeclaredAnnotation(Comment.class);
+                    entity.put("comment",comment.value());
+                }
                 Field[] fields = ReflectionUtil.getFields(c);
                 JSONArray properties = new JSONArray();
                 JSONArray uniqueKeyProperties = new JSONArray();
@@ -741,6 +745,9 @@ public abstract class AbstractDAO implements DAO {
         }
         createTableBuilder.deleteCharAt(createTableBuilder.length() - 1);
         createTableBuilder.append(")");
+        if(entity.containsKey("comment")){
+            createTableBuilder.append("comment='"+entity.getString("comment")+"';");
+        }
         String sql = createTableBuilder.toString().replaceAll("\\s+", " ");
         logger.debug("[生成新表{}=>{}]执行sql:{}", entity.getString("className"), tableName, sql);
         connection.prepareStatement(sql).executeUpdate();

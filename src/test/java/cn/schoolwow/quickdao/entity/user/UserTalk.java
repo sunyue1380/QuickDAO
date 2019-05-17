@@ -5,6 +5,7 @@ import cn.schoolwow.quickdao.annotation.Comment;
 
 import java.util.Date;
 
+@Comment("用户说说关系表")
 public class UserTalk {
     /**自增主键*/
     @Comment("自增主键")

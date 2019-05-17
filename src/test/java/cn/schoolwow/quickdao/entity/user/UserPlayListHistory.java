@@ -1,12 +1,13 @@
 package cn.schoolwow.quickdao.entity.user;
 
+import cn.schoolwow.quickdao.annotation.Comment;
 import cn.schoolwow.quickdao.annotation.ForeignKey;
 import cn.schoolwow.quickdao.annotation.Unique;
 import cn.schoolwow.quickdao.entity.logic.PlayList;
 
 import java.util.Date;
 
-/**用户播单浏览历史*/
+@Comment("用户播单浏览历史表")
 public class UserPlayListHistory {
     /**主键*/
     private long id;

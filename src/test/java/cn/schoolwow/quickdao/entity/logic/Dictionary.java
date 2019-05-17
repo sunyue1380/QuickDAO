@@ -1,11 +1,13 @@
 package cn.schoolwow.quickdao.entity.logic;
 
 import cn.schoolwow.quickdao.annotation.ColumnType;
+import cn.schoolwow.quickdao.annotation.Comment;
 import cn.schoolwow.quickdao.annotation.NotNull;
 import cn.schoolwow.quickdao.annotation.Unique;
 
 import java.util.Date;
 
+@Comment("字典表")
 public class Dictionary {
     private long id;
     @NotNull

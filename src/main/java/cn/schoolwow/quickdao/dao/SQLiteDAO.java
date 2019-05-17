@@ -42,6 +42,9 @@ public class SQLiteDAO extends AbstractDAO{
     protected void createTable(JSONObject entity,Connection connection) throws SQLException {
         String tableName = entity.getString("tableName");
         StringBuilder createTableBuilder = new StringBuilder("create table `" + tableName + "`(");
+        if(entity.containsKey("comment")){
+            createTableBuilder.append("/*"+entity.getString("comment")+"*/");
+        }
         JSONArray properties = entity.getJSONArray("properties");
         for (int j = 0; j < properties.size(); j++) {
             JSONObject property = properties.getJSONObject(j);

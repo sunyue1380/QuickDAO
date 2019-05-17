@@ -5,6 +5,11 @@
     ]
   },
   {
+    "table": "data_type",
+    "rows": [
+    ]
+  },
+  {
     "table": "user@user",
     "rows": [
       {

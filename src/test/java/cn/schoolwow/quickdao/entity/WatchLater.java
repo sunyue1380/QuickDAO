@@ -1,11 +1,13 @@
 package cn.schoolwow.quickdao.entity;
 
+import cn.schoolwow.quickdao.annotation.Comment;
 import cn.schoolwow.quickdao.annotation.NotNull;
 import cn.schoolwow.quickdao.annotation.Unique;
 
 import java.io.Serializable;
 import java.util.Date;
 
+@Comment("稍候再看表")
 public class WatchLater implements Serializable{
     private long id;
     @Unique

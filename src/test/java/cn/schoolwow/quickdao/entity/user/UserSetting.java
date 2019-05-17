@@ -1,10 +1,8 @@
 package cn.schoolwow.quickdao.entity.user;
 
-import cn.schoolwow.quickdao.annotation.ColumnType;
-import cn.schoolwow.quickdao.annotation.ForeignKey;
-import cn.schoolwow.quickdao.annotation.NotNull;
-import cn.schoolwow.quickdao.annotation.Unique;
+import cn.schoolwow.quickdao.annotation.*;
 
+@Comment("用户设置表")
 public class UserSetting {
     private long id;
     @Unique

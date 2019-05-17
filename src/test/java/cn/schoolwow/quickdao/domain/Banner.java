@@ -1,5 +1,8 @@
 package cn.schoolwow.quickdao.domain;
 
+import cn.schoolwow.quickdao.annotation.Comment;
+
+@Comment("Banner")
 public class Banner {
     private long id;
     /**类型1-答题 2-web地址 3-新闻详情*/

@@ -1,9 +1,11 @@
 package cn.schoolwow.quickdao.entity.user;
 
+import cn.schoolwow.quickdao.annotation.Comment;
 import cn.schoolwow.quickdao.annotation.ForeignKey;
 import cn.schoolwow.quickdao.annotation.Unique;
 import cn.schoolwow.quickdao.entity.logic.PlayList;
 
+@Comment("用户订阅表")
 public class UserPlayList {
     /** 唯一标识 */
     private long id;

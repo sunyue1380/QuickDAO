@@ -1,10 +1,12 @@
 package cn.schoolwow.quickdao.entity.logic;
 
+import cn.schoolwow.quickdao.annotation.Comment;
 import cn.schoolwow.quickdao.annotation.NotNull;
 import cn.schoolwow.quickdao.annotation.Unique;
 
 import java.util.Date;
 
+@Comment("视频表")
 public class Video {
   /** 唯一标识 */
   private long id;

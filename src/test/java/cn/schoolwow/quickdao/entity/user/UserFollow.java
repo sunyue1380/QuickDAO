@@ -1,9 +1,11 @@
 package cn.schoolwow.quickdao.entity.user;
 
+import cn.schoolwow.quickdao.annotation.Comment;
 import cn.schoolwow.quickdao.annotation.ForeignKey;
 import cn.schoolwow.quickdao.annotation.Unique;
 import cn.schoolwow.quickdao.domain.ForeignKeyOption;
 
+@Comment("用户关注表")
 public class UserFollow {
     private long id;
     @Unique

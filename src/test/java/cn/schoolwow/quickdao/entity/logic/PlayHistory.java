@@ -1,5 +1,6 @@
 package cn.schoolwow.quickdao.entity.logic;
 
+import cn.schoolwow.quickdao.annotation.Comment;
 import cn.schoolwow.quickdao.annotation.ForeignKey;
 import cn.schoolwow.quickdao.annotation.NotNull;
 import cn.schoolwow.quickdao.annotation.Unique;
@@ -7,6 +8,7 @@ import cn.schoolwow.quickdao.entity.user.User;
 
 import java.util.Date;
 
+@Comment("播单播单历史")
 public class PlayHistory {
     /**
      * 唯一标识
