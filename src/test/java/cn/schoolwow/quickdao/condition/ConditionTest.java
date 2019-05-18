@@ -6,8 +6,7 @@ import cn.schoolwow.quickdao.domain.PageVo;
 import cn.schoolwow.quickdao.entity.logic.PlayHistory;
 import cn.schoolwow.quickdao.entity.logic.PlayList;
 import cn.schoolwow.quickdao.entity.logic.Video;
-import cn.schoolwow.quickdao.entity.user.User;
-import cn.schoolwow.quickdao.entity.user.UserPlayList;
+import cn.schoolwow.quickdao.entity.user.*;
 import cn.schoolwow.quickdao.util.SQLUtil;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
@@ -37,6 +36,20 @@ public class ConditionTest extends QuickDAOTest{
     }
 
     @Test
+    public void testSubConditionJoinTable() throws Exception {
+        List<Report> reportList = dao.query(Report.class)
+                .joinTable(Talk.class,"talkId","id")
+                .addQuery("id",1)
+                .joinTable(User.class,"userId","uid")
+                .addQuery("uid",1)
+                .doneSubCondition()
+                .done()
+                .getCompositList();
+        logger.info("[子表关联查询]结果:{}",JSON.toJSONString(reportList));
+        Assert.assertEquals(1,reportList.size());
+    }
+
+    @Test
     public void testOuterJoinTable() throws Exception {
         //查询用户id为1所订阅的播单
         List<PlayList> playListList= dao.query(PlayList.class)
@@ -51,12 +64,14 @@ public class ConditionTest extends QuickDAOTest{
 
     @Test
     public void testClone() throws Exception {
-        Condition<User> condition = dao.query(User.class)
+        Condition<UserTalk> condition = dao.query(UserTalk.class)
+                .joinTable(User.class,"userId","uid")
                 .addQuery("username","@")
                 .addQuery("type",">=",1)
                 .addInQuery("token",new String[]{"7a746f17a9bf4903b09b617135152c71","9204d99472c04ce7abf1bcb9773b0d49"})
                 .addNotNullQuery("lastLogin")
                 .orderByDesc("uid")
+                .done()
                 .page(1,10);
         Condition<User> cloneCondition = condition.clone();
         logger.info("[clone]{}",cloneCondition);
@@ -74,24 +89,10 @@ public class ConditionTest extends QuickDAOTest{
         queryCondition.put("_pageNumber",1);
         queryCondition.put("_pageSize",10);
         PageVo<User> userPageVo = dao.query(User.class)
-                .addQuery(queryCondition)
+                .addJSONObjectQuery(queryCondition)
                 .getPagingList();
         logger.info("[自定义查询条件]查询结果:{}",JSON.toJSONString(userPageVo));
         Assert.assertTrue(userPageVo.getTotalSize()==2);
-    }
-
-    @Test
-    public void testInstanceQuery() throws Exception {
-        User user = new User();
-        user.setUsername("@");
-        user.setType(1);
-        List<User> userList = dao.query(User.class)
-                .addInstanceQuery(user,false)
-                .orderByDesc("uid")
-                .page(1,10)
-                .getList();
-        logger.info("[实例参数查询]查询结果:{}", JSON.toJSONString(userList));
-        Assert.assertTrue(userList.size()==2);
     }
 
     @Test

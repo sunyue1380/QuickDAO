@@ -212,51 +212,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
     }
 
     @Override
-    public Condition addInstanceQuery(Object instance) {
-        addInstanceQuery(instance, true);
-        return this;
-    }
-
-    @Override
-    public Condition addInstanceQuery(Object instance, boolean userBasicDataType) {
-        Field[] fields = ReflectionUtil.getFields(instance.getClass());
-        for (Field field : fields) {
-            //判断是否是基本数据类型
-            if (field.getType().isPrimitive() && !userBasicDataType) {
-                continue;
-            }
-            try {
-                switch (field.getType().getSimpleName().toLowerCase()) {
-                    case "int": {
-                    }
-                    case "integer": {
-                        addQuery(field.getName(), field.getInt(instance));
-                    }
-                    break;
-                    case "long": {
-                        //排除id为0的情况
-                        if (!ReflectionUtil.isIdField(field) || field.getLong(instance) != 0) {
-                            addQuery(field.getName(), field.getLong(instance));
-                        }
-                    }
-                    break;
-                    case "boolean": {
-                        addQuery(field.getName(), field.getBoolean(instance));
-                    }
-                    break;
-                    default: {
-                        addQuery(field.getName(), field.get(instance));
-                    }
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-        return this;
-    }
-
-    @Override
-    public Condition addQuery(JSONObject queryCondition) {
+    public Condition addJSONObjectQuery(JSONObject queryCondition) {
         Field[] fields = ReflectionUtil.getFields(_class);
         for (Field field : fields) {
             if (queryCondition.containsKey(field.getName())) {
@@ -726,29 +682,19 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
             ResultSet resultSet = ps.executeQuery();
             JSONArray array = new JSONArray(count);
 
-            Field[] fields = ReflectionUtil.getFields(_class);
             while (resultSet.next()) {
-                JSONObject o = new JSONObject();
-                for (Field field : fields) {
-                    if (field.getAnnotation(Ignore.class) != null) {
-                        continue;
-                    }
-                    setValue("t",field,o,resultSet);
-                }
-
+                JSONObject o = getSubObject(_class,"t",resultSet);
                 for (AbstractCondition.AbstractSubCondition subCondition : subConditionList) {
                     if (ValidateUtil.isEmpty(subCondition.compositField)) {
                         continue;
                     }
-                    JSONObject subObject = new JSONObject();
-                    Field[] subFields = ReflectionUtil.getFields(subCondition._class);
-                    for (Field field : subFields) {
-                        if (field.getAnnotation(Ignore.class) != null) {
-                            continue;
-                        }
-                        setValue(subCondition.tableAliasName,field,subObject,resultSet);
+                    JSONObject subObject = getSubObject(subCondition._class,subCondition.tableAliasName,resultSet);
+                    AbstractSubCondition parentSubCondition = (AbstractSubCondition) subCondition.parentSubCondition;
+                    if(parentSubCondition==null){
+                        o.put(subCondition.compositField, subObject);
+                    }else{
+                        o.getJSONObject(parentSubCondition.compositField).put(subCondition.compositField, subObject);
                     }
-                    o.put(ReflectionUtil.getCompositField(_class, subCondition._class, subCondition.compositField).getName(), subObject);
                 }
                 array.add(o);
             }
@@ -809,10 +755,20 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
      */
     protected void addJoinTableStatement() {
         for (AbstractSubCondition abstractSubCondition : subConditionList) {
-            sqlBuilder.append(abstractSubCondition.join+" `" + SQLUtil.classTableMap.get(abstractSubCondition._class.getName()) + "` as " + abstractSubCondition.tableAliasName + " on t." + StringUtil.Camel2Underline(abstractSubCondition.primaryField) + " = " + StringUtil.Camel2Underline(abstractSubCondition.tableAliasName) + "." + StringUtil.Camel2Underline(abstractSubCondition.joinTableField) + " ");
+            AbstractSubCondition parentSubCondition = (AbstractSubCondition) abstractSubCondition.parentSubCondition;
+            if(parentSubCondition==null){
+                //如果parentSubCondition为空,则为主表关联子表
+                sqlBuilder.append(abstractSubCondition.join+" `" + SQLUtil.classTableMap.get(abstractSubCondition._class.getName()) + "` as " + abstractSubCondition.tableAliasName + " on t." + StringUtil.Camel2Underline(abstractSubCondition.primaryField) + " = " + StringUtil.Camel2Underline(abstractSubCondition.tableAliasName) + "." + StringUtil.Camel2Underline(abstractSubCondition.joinTableField) + " ");
+            }else{
+                //如果parentSubCondition不为空,则为子表关联子表
+                sqlBuilder.append(abstractSubCondition.join+" `" + SQLUtil.classTableMap.get(abstractSubCondition._class.getName()) + "` as " + abstractSubCondition.tableAliasName + " on "+abstractSubCondition.tableAliasName+"." + StringUtil.Camel2Underline(abstractSubCondition.joinTableField) + " = " + StringUtil.Camel2Underline(parentSubCondition.tableAliasName) + "." + StringUtil.Camel2Underline(abstractSubCondition.primaryField) + " ");
+            }
         }
     }
 
+    /**
+     * 添加where的SQL语句
+     */
     protected void addWhereStatement() {
         //添加查询条件
         sqlBuilder.append(" "+whereBuilder.toString());
@@ -872,6 +828,19 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
         parameterIndex = 1;
     }
 
+    /**获取子对象属性值*/
+    private JSONObject getSubObject(Class _class,String tableAliasName,ResultSet resultSet) throws SQLException {
+        JSONObject subObject = new JSONObject();
+        Field[] subFields = ReflectionUtil.getFields(_class);
+        for (Field field : subFields) {
+            if (field.getAnnotation(Ignore.class) != null) {
+                continue;
+            }
+            setValue(tableAliasName,field,subObject,resultSet);
+        }
+        return subObject;
+    }
+
     /**设置属性值*/
     private void setValue(String tableAlias,Field field,JSONObject o,ResultSet resultSet) throws SQLException {
         String columnName = tableAlias+"_" + StringUtil.Camel2Underline(field.getName());
@@ -922,6 +891,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
         protected List parameterList = new ArrayList();
         protected transient Condition condition;
         protected String join = "join";
+        protected SubCondition parentSubCondition;
 
         public AbstractSubCondition(Class<T> _class, String tableAliasName, String primaryField, String joinTableField, String compositField, Condition condition) {
             this._class = _class;
@@ -942,6 +912,20 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
         public SubCondition rightJoin() {
             join = "right outer join";
             return this;
+        }
+
+        @Override
+        public <T> SubCondition<T> joinTable(Class<T> _class, String primaryField, String joinTableField) {
+            AbstractSubCondition abstractSubCondition = (AbstractSubCondition) condition.joinTable(_class,primaryField,joinTableField);
+            abstractSubCondition.parentSubCondition = this;
+            return abstractSubCondition;
+        }
+
+        @Override
+        public <T> SubCondition<T> joinTable(Class<T> _class, String primaryField, String joinTableField, String compositField) {
+            AbstractSubCondition abstractSubCondition = (AbstractSubCondition) condition.joinTable(_class,primaryField,joinTableField,compositField);
+            abstractSubCondition.parentSubCondition = this;
+            return abstractSubCondition;
         }
 
         @Override
@@ -1041,6 +1025,11 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
         @Override
         public SubCondition orderByDesc(String field) {
             orderByBuilder.append(tableAliasName + ".`" + StringUtil.Camel2Underline(field) + "` desc,");
+            return this;
+        }
+
+        @Override
+        public SubCondition doneSubCondition() {
             return this;
         }
 

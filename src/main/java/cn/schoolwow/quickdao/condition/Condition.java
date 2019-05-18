@@ -70,20 +70,23 @@ public interface Condition<T> {
      * */
     Condition addQuery(String field, String operator, Object value);
     /**
-     * 添加实体属性查询
-     * @param instance 实体类实例
+     * 添加自定义查询条件<br/>
+     * <code>
+     *     {<br/>
+     *         {field}:{value},字段查询<br/>
+     *         {field}Start:{value},添加大于等于查询<br/>
+     *         {field}End:{value},添加小于等于查询<br/>
+     *         {field}IN:[array],添加IN查询<br/>
+     *         {field}NOTNULL:{value},添加not null查询<br/>
+     *         {field}NULL:{value},添加null查询<br/>
+     *         _orderBy:{value},升序排列<br/>
+     *         _orderByDesc:{value},降序排列<br/>
+     *         _pageNumber:{value},页码<br/>
+     *         _pageSize:{value},每页个数<br/>
+     *     }<br/>
+     * </code>
      * */
-    Condition addInstanceQuery(Object instance);
-    /**
-     * 添加实体属性
-     * @param userBasicDataType 是否使用基本属性类型进行查询
-     * */
-    Condition addInstanceQuery(Object instance,boolean userBasicDataType);
-    /**
-     * 添加自定义查询条件
-     * @deprecated 不建议使用,将来的版本可能会删除
-     * */
-    Condition addQuery(JSONObject queryCondition);
+    Condition addJSONObjectQuery(JSONObject queryCondition);
     /**
      * 添加更新字段,用于<b>{@link Condition#update()}</b>方法
      * @param field 待更新的字段

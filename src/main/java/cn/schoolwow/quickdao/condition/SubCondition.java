@@ -5,6 +5,8 @@ import java.util.List;
 public interface SubCondition<T> {
     SubCondition leftJoin();
     SubCondition rightJoin();
+    <T> SubCondition<T> joinTable(Class<T> _class, String primaryField, String joinTableField);
+    <T> SubCondition<T> joinTable(Class<T> _class, String primaryField, String joinTableField,String compositField);
     SubCondition addNullQuery(String field);
     SubCondition addNotNullQuery(String field);
     SubCondition addNotEmptyQuery(String field);
@@ -25,5 +27,6 @@ public interface SubCondition<T> {
      * @param field 降序排列字段名
      * */
     SubCondition orderByDesc(String field);
+    SubCondition doneSubCondition();
     Condition done();
 }
