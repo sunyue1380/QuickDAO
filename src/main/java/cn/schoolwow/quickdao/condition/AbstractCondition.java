@@ -18,7 +18,6 @@ import java.lang.reflect.Field;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.List;
 
 public class AbstractCondition<T> implements Condition<T>, Serializable {
@@ -303,16 +302,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
     @Override
     public <T> SubCondition<T> joinTable(Class<T> _class, String primaryField, String joinTableField) {
         String tableNameAlias = "t" + (joinTableIndex++);
-        //获取第一个类型为_class的字段名
-        Field[] fields = ReflectionUtil.getCompositField(this._class, _class);
-        String fieldName = null;
-        if (fields != null && fields.length > 0) {
-            if (fields.length == 1) {
-                fieldName = fields[0].getName();
-            } else {
-                throw new IllegalArgumentException("类[" + this._class.getName() + "]存在[" + fields.length + "]个类型为[" + _class.getName() + "]的成员变量!");
-            }
-        }
+        String fieldName = getFirstClassFieldInMainClass(this._class,_class);
         SubCondition<T> subCondition = new AbstractSubCondition<T>(_class, tableNameAlias, primaryField, joinTableField, fieldName, this);
         subConditionList.add((AbstractSubCondition) subCondition);
         return subCondition;
@@ -693,7 +683,16 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
                     if(parentSubCondition==null){
                         o.put(subCondition.compositField, subObject);
                     }else{
-                        o.getJSONObject(parentSubCondition.compositField).put(subCondition.compositField, subObject);
+                        List<String> fieldNames = new ArrayList<>();
+                        while(parentSubCondition!=null){
+                            fieldNames.add(parentSubCondition.compositField);
+                            parentSubCondition = (AbstractSubCondition)parentSubCondition.parentSubCondition;
+                        }
+                        JSONObject oo = o;
+                        for(int i=fieldNames.size()-1;i>=0;i--){
+                            oo = oo.getJSONObject(fieldNames.get(i));
+                        }
+                        oo.put(subCondition.compositField,subObject);
                     }
                 }
                 array.add(o);
@@ -828,6 +827,20 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
         parameterIndex = 1;
     }
 
+    /**找到mainClass中第一个类型为_class的字段名称*/
+    private String getFirstClassFieldInMainClass(Class mainClass,Class _class){
+        //获取第一个类型为_class的字段名
+        Field[] fields = ReflectionUtil.getCompositField(mainClass, _class);
+        if (fields == null || fields.length == 0) {
+            return null;
+        }
+        if (fields.length == 1) {
+            return fields[0].getName();
+        } else {
+            throw new IllegalArgumentException("类[" + mainClass.getName() + "]存在[" + fields.length + "]个类型为[" + _class.getName() + "]的成员变量!");
+        }
+    }
+
     /**获取子对象属性值*/
     private JSONObject getSubObject(Class _class,String tableAliasName,ResultSet resultSet) throws SQLException {
         JSONObject subObject = new JSONObject();
@@ -916,7 +929,8 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
 
         @Override
         public <T> SubCondition<T> joinTable(Class<T> _class, String primaryField, String joinTableField) {
-            AbstractSubCondition abstractSubCondition = (AbstractSubCondition) condition.joinTable(_class,primaryField,joinTableField);
+            String fieldName = getFirstClassFieldInMainClass(this._class,_class);
+            AbstractSubCondition abstractSubCondition = (AbstractSubCondition) condition.joinTable(_class,primaryField,joinTableField,fieldName);
             abstractSubCondition.parentSubCondition = this;
             return abstractSubCondition;
         }

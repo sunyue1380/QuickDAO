@@ -5,6 +5,7 @@ import cn.schoolwow.quickdao.dao.DAO;
 import cn.schoolwow.quickdao.domain.PageVo;
 import cn.schoolwow.quickdao.entity.logic.PlayHistory;
 import cn.schoolwow.quickdao.entity.logic.PlayList;
+import cn.schoolwow.quickdao.entity.logic.Project;
 import cn.schoolwow.quickdao.entity.logic.Video;
 import cn.schoolwow.quickdao.entity.user.*;
 import cn.schoolwow.quickdao.util.SQLUtil;
@@ -36,12 +37,27 @@ public class ConditionTest extends QuickDAOTest{
     }
 
     @Test
-    public void testSubConditionJoinTable() throws Exception {
+    public void testMultiSubConditionJoinTable() throws Exception {
         List<Report> reportList = dao.query(Report.class)
+                .joinTable(User.class,"userId","uid")
+                .done()
                 .joinTable(Talk.class,"talkId","id")
-                .addQuery("id",1)
+                .joinTable(User.class,"userId","uid")
+                .joinTable(Project.class,"project","key")
+                .doneSubCondition()
+                .done()
+                .getCompositList();
+        logger.info("[子表关联查询]结果:{}",JSON.toJSONString(reportList));
+        Assert.assertEquals(1,reportList.size());
+    }
+
+
+    @Test
+    public void testSubConditionJoinTable() throws Exception {
+        List<Report> reportList = dao.query(Talk.class)
                 .joinTable(User.class,"userId","uid")
                 .addQuery("uid",1)
+                .joinTable(Project.class,"project","key")
                 .doneSubCondition()
                 .done()
                 .getCompositList();

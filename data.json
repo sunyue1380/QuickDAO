@@ -1,5 +1,14 @@
 [
   {
+    "table": "logic@project",
+    "rows": [
+      {
+        "key":"blockchain",
+        "value":"区块链"
+      }
+    ]
+  },
+  {
     "table": "user@report",
     "rows": [
       {
@@ -44,14 +53,16 @@
         "password": "123456789",
         "last_login": "2019-02-19 20:28:14",
         "type": 1,
-        "token": "7a746f17a9bf4903b09b617135152c71"
+        "token": "7a746f17a9bf4903b09b617135152c71",
+        "project": "blockchain"
       },
       {
         "username": "648823596@qq.com",
         "password": "123456789",
         "last_login": "2019-03-24 23:47:18",
         "type": 1,
-        "token": "9204d99472c04ce7abf1bcb9773b0d49"
+        "token": "9204d99472c04ce7abf1bcb9773b0d49",
+        "project": "blockchain"
       }
     ]
   },

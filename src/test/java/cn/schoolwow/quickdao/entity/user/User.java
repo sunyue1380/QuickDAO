@@ -3,6 +3,7 @@ package cn.schoolwow.quickdao.entity.user;
 import cn.schoolwow.quickdao.annotation.Comment;
 import cn.schoolwow.quickdao.annotation.Id;
 import cn.schoolwow.quickdao.annotation.Unique;
+import cn.schoolwow.quickdao.entity.logic.Project;
 
 import java.util.Date;
 
@@ -36,6 +37,10 @@ public class User {
 
     /**给用户颁发的token*/
     private String token;
+
+    private String project;
+
+    private Project projectO;
 
     public long getUid() {
         return uid;
@@ -83,5 +88,21 @@ public class User {
 
     public void setToken(String token) {
         this.token = token;
+    }
+
+    public String getProject() {
+        return project;
+    }
+
+    public void setProject(String project) {
+        this.project = project;
+    }
+
+    public Project getProjectO() {
+        return projectO;
+    }
+
+    public void setProjectO(Project projectO) {
+        this.projectO = projectO;
     }
 }
