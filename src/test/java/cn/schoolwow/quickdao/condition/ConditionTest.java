@@ -37,6 +37,14 @@ public class ConditionTest extends QuickDAOTest{
     }
 
     @Test
+    public void testAddBetweenQuery() throws Exception {
+        Condition<User> condition = dao.query(User.class)
+                .addBetweenQuery("uid",1,2);
+        List<User> userList = condition.getList();
+        Assert.assertEquals(2,userList.size());
+    }
+
+    @Test
     public void testMultiSubConditionJoinTable() throws Exception {
         List<Report> reportList = dao.query(Report.class)
                 .joinTable(User.class,"userId","uid")

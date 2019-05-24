@@ -52,6 +52,13 @@ public interface Condition<T> {
      * */
     Condition addNotInQuery(String field, List values);
     /**
+     * 添加between语句
+     * @param field 字段
+     * @param start 范围开始值
+     * @param end 范围结束值
+     * */
+    Condition addBetweenQuery(String field, Object start,Object end);
+    /**
      * 添加自定义查询条件
      * @param query 子查询条件(<b>主表</b>统一别名为t)
      * */

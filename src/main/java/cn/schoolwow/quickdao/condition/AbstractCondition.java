@@ -170,6 +170,14 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
     }
 
     @Override
+    public Condition addBetweenQuery(String field, Object start, Object end) {
+        whereBuilder.append("(t.`"+StringUtil.Camel2Underline(field)+"` between ? and ? ) and ");
+        parameterList.add(start);
+        parameterList.add(end);
+        return this;
+    }
+
+    @Override
     public Condition addQuery(String query) {
         whereBuilder.append("(" + query + ") and ");
         return this;
