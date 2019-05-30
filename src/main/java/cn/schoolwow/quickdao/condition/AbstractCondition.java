@@ -60,7 +60,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
      */
     protected List parameterList = new ArrayList();
     /**
-     * 存在当前待设置下标处
+     * 参数索引
      */
     protected int parameterIndex = 1;
     /**

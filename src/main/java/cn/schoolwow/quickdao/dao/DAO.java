@@ -10,6 +10,11 @@ import java.util.List;
  * */
 public interface DAO {
     /**
+     * <p>实体对象是否存在</p>
+     * @param instance 实体对象
+     * */
+    boolean exist(Object instance);
+    /**
      * <p>根据id查询</p>
      * @param _class 类名
      * @param id 指定要查询id字段的值

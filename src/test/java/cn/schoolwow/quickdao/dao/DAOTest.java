@@ -18,6 +18,7 @@ import org.junit.runners.Parameterized;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.jws.soap.SOAPBinding;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.*;
@@ -31,7 +32,7 @@ public class DAOTest extends QuickDAOTest{
     }
 
     @Before
-    public void before() throws FileNotFoundException, ClassNotFoundException {
+    public void before(){
         try {
             initialDatabase(dao);
         } catch (Exception e) {
@@ -40,12 +41,21 @@ public class DAOTest extends QuickDAOTest{
     }
 
     @Test
-    public void aotoBuild() throws Exception {
+    public void aotoBuild(){
         dao.create(DataType.class);
     }
 
     @Test
-    public void fetch() throws Exception {
+    public void exist(){
+        User user = new User();
+        user.setUsername("sunyue@schoolwow.cn");
+        user.setPassword("123456");
+        boolean exist = dao.exist(user);
+        Assert.assertEquals(true,exist);
+    }
+
+    @Test
+    public void fetch(){
         User user = dao.fetch(User.class,1l);
         logger.debug("[获取用户id为1的记录]:{}", JSON.toJSONString(user));
         Assert.assertNotNull("获取用户id为1的记录失败",user);
@@ -57,14 +67,14 @@ public class DAOTest extends QuickDAOTest{
     }
 
     @Test
-    public void fetchWithProperty() throws Exception {
+    public void fetchWithProperty(){
         User user = dao.fetch(User.class,"username","sunyue@schoolwow.cn");
         logger.debug("[获取用户名为sunyue@schoolwow.cn的记录]:{}",JSON.toJSONString(user));
         Assert.assertNotNull(user);
     }
 
     @Test
-    public void fetchList() throws Exception {
+    public void fetchList(){
         List<User> userList = dao.fetchList(User.class,"password","123456789");
         logger.debug("[获取用户密码为为123456789的记录]:{}",userList);
         Assert.assertTrue(userList!=null&&userList.size()==2);
@@ -74,23 +84,25 @@ public class DAOTest extends QuickDAOTest{
     }
 
     @Test
-    public void save() throws Exception {
+    public void save(){
         Object o = null;
         Assert.assertTrue("保存空对象应该返回0",dao.save(o)==0);
 
         //根据UniqueKey更新
-        User user = dao.fetch(User.class,1);
+        User user = new User();
+        user.setUsername("sunyue@schoolwow.cn");
         user.setPassword("123456");
         long effect = dao.save(user);
         logger.debug("[把用户名为sunyue@schoolwow.cn的密码改为123456]:{}",effect);
-        Assert.assertTrue(effect>0);
+        Assert.assertEquals("123456",dao.fetch(User.class,"username","sunyue@schoolwow.cn").getPassword());
 
         //根据id更新
-        Comment comment = dao.fetch(Comment.class,1);
+        Comment comment = new Comment();
+        comment.setId(1);
         comment.setAuthor("sunyue");
         effect = dao.save(comment);
         logger.debug("[更新id为1的评论,设置author为sunyue]影响:{}",effect);
-        Assert.assertTrue(effect>0);
+        Assert.assertEquals("sunyue",dao.fetch(Comment.class,1).getAuthor());
 
         //添加一条新的Comment记录
         Comment newComment = new Comment();
@@ -101,18 +113,19 @@ public class DAOTest extends QuickDAOTest{
         newComment.setVideoId(1);
         effect = dao.save(newComment);
         logger.debug("[添加一条新的评论]影响:{},id:{}",effect,newComment.getId());
-        Assert.assertTrue(effect>0);
+        Assert.assertNotNull(dao.fetch(Comment.class,"author","_前端农民工"));
     }
 
     @Test
-    public void saveArray() throws Exception {
+    public void saveArray(){
         User[] users = {dao.fetch(User.class,1),dao.fetch(User.class,2)};
         for(int i=0;i<users.length;i++){
             users[i].setPassword("123456");
         }
         long effect = dao.save(users);
         logger.info("[批量将用户id为1和2的用户密码更改为123456]影响:{}",effect);
-        Assert.assertTrue(effect>0);
+        long count = dao.query(User.class).addQuery("password","123456").count();
+        Assert.assertEquals(2,count);
 
         //根据id更新
         Comment comment = dao.fetch(Comment.class,1);
@@ -129,32 +142,36 @@ public class DAOTest extends QuickDAOTest{
         Comment[] comments = {comment,newComment};
         effect = dao.save(comments);
         logger.debug("[批量更新评论]影响:{}",effect);
-        Assert.assertTrue(effect>0);
+        count = dao.query(Comment.class).count();
+        Assert.assertEquals(2,count);
     }
 
     @Test
-    public void delete() throws Exception {
+    public void delete(){
         long effect = dao.delete(User.class,1);
         logger.info("[删除用户id为1的记录]影响:{}",effect);
-        Assert.assertTrue(effect>0);
+        User user = dao.fetch(User.class,1);
+        Assert.assertNull(user);
     }
 
     @Test
-    public void deleteProperty() throws Exception {
+    public void deleteProperty(){
         long effect = dao.delete(User.class,"username","sunyue@schoolwow.cn");
         logger.info("[删除用户名为sunyue@schoolwow.cn的记录]影响:{}",effect);
-        Assert.assertTrue(effect>0);
+        User user = dao.fetch(User.class,"username","sunyue@schoolwow.cn");
+        Assert.assertNull(user);
     }
 
     @Test
-    public void clear() throws Exception {
+    public void clear(){
         long effect = dao.clear(User.class);
         logger.info("[清空User表]影响:{}",effect);
-        Assert.assertTrue(effect>0);
+        long count = dao.query(User.class).count();
+        Assert.assertEquals(0,count);
     }
 
     @Test
-    public void testTransaction() throws Exception {
+    public void testTransaction(){
         //用户订阅播单,播单订阅数加1,同时插入一条用户播单订阅记录
         dao.startTransaction();
         UserPlayList userPlayList = new UserPlayList();
@@ -169,7 +186,7 @@ public class DAOTest extends QuickDAOTest{
         dao.endTransaction();
         long count = dao.query(UserPlayList.class).addQuery("userId",1).count();
         logger.info("[检查用户播单订阅记录]count:{}",count);
-        Assert.assertTrue(count==2);
+        Assert.assertEquals(2,count);
 
         //开启事务插入一条订阅记录后回滚
         dao.startTransaction();
@@ -181,6 +198,6 @@ public class DAOTest extends QuickDAOTest{
         dao.endTransaction();
         count = dao.query(UserPlayList.class).addQuery("userId",2).count();
         logger.info("[检查用户播单订阅记录]count:{}",count);
-        Assert.assertTrue(count==0);
+        Assert.assertEquals(0,count);
     }
 }

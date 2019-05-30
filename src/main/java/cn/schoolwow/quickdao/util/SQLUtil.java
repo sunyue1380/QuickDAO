@@ -1,13 +1,10 @@
 package cn.schoolwow.quickdao.util;
 
-import cn.schoolwow.quickdao.annotation.Ignore;
 import cn.schoolwow.quickdao.annotation.Unique;
 import com.alibaba.fastjson.JSONObject;
 
 import java.lang.reflect.Field;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 public class SQLUtil {
@@ -83,10 +80,9 @@ public class SQLUtil {
             builder.append("update `" + classTableMap.get(_class.getName())+"` set ");
             Field[] fields = ReflectionUtil.getFields(_class);
             for(int i=0;i<fields.length;i++){
-                if(fields[i].getAnnotation(Unique.class)!=null){
-                    continue;
+                if(fields[i].getAnnotation(Unique.class)==null){
+                    builder.append("`"+StringUtil.Camel2Underline(fields[i].getName()) + "`=?,");
                 }
-                builder.append("`"+StringUtil.Camel2Underline(fields[i].getName()) + "`=?,");
             }
             builder.deleteCharAt(builder.length()-1);
             builder.append(" where ");

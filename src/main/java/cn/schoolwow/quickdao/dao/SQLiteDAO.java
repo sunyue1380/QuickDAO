@@ -1,6 +1,5 @@
 package cn.schoolwow.quickdao.dao;
 
-import cn.schoolwow.quickdao.QuickDAO;
 import cn.schoolwow.quickdao.domain.QuickDAOConfig;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
@@ -12,9 +11,6 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.function.Predicate;
 
 public class SQLiteDAO extends AbstractDAO{
     Logger logger = LoggerFactory.getLogger(SQLiteDAO.class);

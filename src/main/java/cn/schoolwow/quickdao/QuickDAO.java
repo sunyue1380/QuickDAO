@@ -2,9 +2,7 @@ package cn.schoolwow.quickdao;
 
 import cn.schoolwow.quickdao.dao.*;
 import cn.schoolwow.quickdao.domain.QuickDAOConfig;
-import cn.schoolwow.quickdao.util.ReflectionUtil;
 import cn.schoolwow.quickdao.util.ValidateUtil;
-import com.alibaba.fastjson.JSON;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -32,6 +32,8 @@ public class ReflectionUtil {
     private static Map<String,Field> compositFieldCache = new HashMap<>();
     /**记录类对应主键字段*/
     public static Map<String,Field> idCache = new HashMap<>();
+    /**记录类的唯一性约束字段*/
+    public static Map<String,Field[]> uniqueFieldsCache = new HashMap<>();
 
     /**获取id属性*/
     public static boolean isIdField(Field field) {
@@ -97,19 +99,21 @@ public class ReflectionUtil {
         }
     }
 
-    public static Field getCompositField(Class _class,Class fieldType,String fieldName){
-        return compositFieldCache.get(_class.getName()+"_"+fieldType.getName()+"_"+fieldName);
-    }
-
     /**该类是否有唯一性约束*/
     public static boolean hasUniqueKey(Class _class){
         String key = "hasUniqueKey_"+_class.getName();
         if(!sqlCache.containsKey(key)){
-            List<Field> fieldList = Arrays.asList(ReflectionUtil.getFields(_class));
-            sqlCache.put(key,fieldList.stream().anyMatch((field)->field.getAnnotation(Unique.class)!=null));
+            Field[] fields = getUniqueFields(_class);
+            return fields!=null&&fields.length>0;
         }
         return sqlCache.getBoolean(key);
     }
+
+    /**获取该类的唯一性约束字段*/
+    public static Field[] getUniqueFields(Class _class){
+        return uniqueFieldsCache.get(_class.getName());
+    }
+
     /**对象是否存在id*/
     public static boolean hasId(Object instance) throws IllegalAccessException {
         Class _class = instance.getClass();
@@ -124,9 +128,6 @@ public class ReflectionUtil {
             case "long": {
                 return ((!id.getType().isPrimitive() && id.get(instance) == null) || id.getLong(instance) <= 0) ? false : true;
             }
-//            case "string": {
-//                return id.get(instance) == null ? false : true;
-//            }
             default: {
                 throw new IllegalArgumentException("无法识别的主键类型:" + id.getType().getSimpleName().toLowerCase());
             }
