@@ -15,12 +15,14 @@ public class User {
     private long id;
     private String username;
     private String password;
+}
 //用户设置表
 public class UserSetting {
     private long id;
     private long userId;
     private String setting;
     private User user;
+}
 //用户关注表
 public class UserFollow {
     private long id;
@@ -28,6 +30,7 @@ public class UserFollow {
     private long followerId;
     private User user;
     private User followUser;
+}
 ```
 
 ## 2 导入QuickDAO
@@ -47,7 +50,7 @@ QuickDAO基于JDBC,为提高效率,默认只支持数据库连接池.
 <dependency>
   <groupId>cn.schoolwow</groupId>
   <artifactId>QuickDAO</artifactId>
-  <version>2.4</version>
+  <version>2.6</version>
 </dependency>
 ```
 
@@ -144,3 +147,6 @@ QuickDAO本身提供了一套较完整的JUnit测试用例,可查看[ConditionTe
 
 # 反馈
 目前QuickDAO还不成熟,还在不断完善中.若有问题请提交Issue,作者将第一时间跟进并努力解决.同时欢迎热心认识提交PR,共同完善QuickDAO项目!
+
+# 开源协议
+本软件使用 [GPL](http://www.gnu.org/licenses/gpl-3.0.html) 开源协议!
