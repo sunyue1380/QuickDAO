@@ -1,5 +1,14 @@
 [
   {
+    "table": "logic@dictionary",
+    "rows": [
+      {
+        "key":"key",
+        "value":"value"
+      }
+    ]
+  },
+  {
     "table": "logic@project",
     "rows": [
       {

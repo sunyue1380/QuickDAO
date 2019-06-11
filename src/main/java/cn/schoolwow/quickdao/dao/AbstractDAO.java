@@ -183,9 +183,9 @@ public abstract class AbstractDAO implements DAO {
             long effect = 0;
 
             if(exist(instance)) {
-                if(ReflectionUtil.hasUniqueKey(instance.getClass())){
+                if(ReflectionUtil.hasUniqueKey(_class)&&ReflectionUtil.canUpdateByUniqueKey(_class)){
                     //根据唯一性约束更新
-                    String updateByUniqueKey = SQLUtil.updateByUniqueKey(instance.getClass());
+                    String updateByUniqueKey = SQLUtil.updateByUniqueKey(_class);
                     ps = connection.prepareStatement(updateByUniqueKey);
                     logger.debug("[根据唯一性约束更新]执行SQL:{}",ReflectionUtil.setValueWithUpdateByUniqueKey(ps,instance,updateByUniqueKey));
                     effect = ps.executeUpdate();
@@ -197,14 +197,14 @@ public abstract class AbstractDAO implements DAO {
                     }
                 }else if(ReflectionUtil.hasId(instance)){
                     //根据id更新
-                    String updateById = SQLUtil.updateById(instance.getClass());
+                    String updateById = SQLUtil.updateById(_class);
                     ps = connection.prepareStatement(updateById);
                     logger.debug("[根据id更新]执行SQL:{}", ReflectionUtil.setValueWithUpdateById(ps, instance, updateById));
                     effect = ps.executeUpdate();
                 }
             }else{
                 //执行insertIgnore
-                String insertIgnore = SQLUtil.insertIgnore(instance.getClass(),getSyntax(Syntax.InsertIgnore));
+                String insertIgnore = SQLUtil.insertIgnore(_class,getSyntax(Syntax.InsertIgnore));
                 ps = connection.prepareStatement(insertIgnore,PreparedStatement.RETURN_GENERATED_KEYS);
                 logger.debug("[执行插入操作]执行SQL:{}",ReflectionUtil.setValueWithInsertIgnore(ps,instance,insertIgnore));
                 effect = ps.executeUpdate();
@@ -218,7 +218,9 @@ public abstract class AbstractDAO implements DAO {
                     rs.close();
                 }
             }
-            ps.close();
+            if(ps!=null){
+                ps.close();
+            }
             if(!startTranscation){
                 connection.close();
             }
@@ -237,10 +239,10 @@ public abstract class AbstractDAO implements DAO {
         try {
             Connection connection = getConnection();
             connection.setAutoCommit(false);
+
             String updateByUniqueKey = SQLUtil.updateByUniqueKey(instanceList.get(0).getClass());
             PreparedStatement _updateByUniqueKeyPs = null;
-            Field[] uniqueFields = ReflectionUtil.getUniqueFields(instanceList.get(0).getClass());
-            if (uniqueFields!=null&&uniqueFields.length>0) {
+            if(ReflectionUtil.canUpdateByUniqueKey(instanceList.get(0).getClass())){
                 //如果有则获取对应语句
                 logger.debug("[根据唯一性约束更新]SQL语句:{}",updateByUniqueKey);
                 _updateByUniqueKeyPs = connection.prepareStatement(updateByUniqueKey);
@@ -252,10 +254,10 @@ public abstract class AbstractDAO implements DAO {
             String insertIgnore = SQLUtil.insertIgnore(instanceList.get(0).getClass(),getSyntax(Syntax.InsertIgnore));
             PreparedStatement insertIgnorePs = connection.prepareStatement(insertIgnore);
             //根据每个实体类具体情况插入
-            instanceList.stream().forEach((instance)->{
+            for(Object instance:instanceList){
                 try {
                     if(exist(instance)){
-                        if (ReflectionUtil.hasUniqueKey(instance.getClass())) {
+                        if (_updateByUniqueKeyPs!=null) {
                             //如果有唯一性约束则以唯一性约束更新
                             logger.debug("[根据唯一性约束更新]执行SQL:{}",ReflectionUtil.setValueWithUpdateByUniqueKey(updateByUniqueKeyPs,instance,updateByUniqueKey));
                             updateByUniqueKeyPs.addBatch();
@@ -273,8 +275,7 @@ public abstract class AbstractDAO implements DAO {
                     logger.warn("[插入单个记录失败]{}",JSON.toJSONString(instance));
                     e.printStackTrace();
                 }
-            });
-
+            }
             //执行Batch并将所有结果添加
             long effect = 0;
             PreparedStatement[] preparedStatements = {updateByUniqueKeyPs,updateByIdPs,insertIgnorePs};

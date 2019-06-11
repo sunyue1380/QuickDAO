@@ -80,7 +80,7 @@ public class SQLUtil {
             builder.append("update `" + classTableMap.get(_class.getName())+"` set ");
             Field[] fields = ReflectionUtil.getFields(_class);
             for(int i=0;i<fields.length;i++){
-                if(fields[i].getAnnotation(Unique.class)==null){
+                if(!ReflectionUtil.isIdField(fields[i])&&fields[i].getAnnotation(Unique.class)==null){
                     builder.append("`"+StringUtil.Camel2Underline(fields[i].getName()) + "`=?,");
                 }
             }

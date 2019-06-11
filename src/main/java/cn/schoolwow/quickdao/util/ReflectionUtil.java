@@ -109,6 +109,16 @@ public class ReflectionUtil {
         return sqlCache.getBoolean(key);
     }
 
+    /**该类是否可以根据唯一性约束更新*/
+    public static boolean canUpdateByUniqueKey(Class _class){
+        //如果一个类除了id和复杂属性以外都是唯一性字段,则该类不能根据UniqueKey更新
+        String key = "canUpdateByUniqueKey_"+_class.getName();
+        if(!sqlCache.containsKey(key)){
+            sqlCache.put(key,hasUniqueKey(_class)&&getFields(_class).length!=getUniqueFields(_class).length+1);
+        }
+        return sqlCache.getBoolean(key);
+    }
+
     /**获取该类的唯一性约束字段*/
     public static Field[] getUniqueFields(Class _class){
         return uniqueFieldsCache.get(_class.getName());
@@ -177,9 +187,9 @@ public class ReflectionUtil {
     public static String setValueWithUpdateByUniqueKey(PreparedStatement ps,Object instance,String sql) throws SQLException, IllegalAccessException {
         int parameterIndex = 1;
         Field[] fields = getFields(instance.getClass());
-        //先设置非Unique字段
+        //先设置非id和Unique字段
         for(int i=0;i<fields.length;i++){
-            if(fields[i].getAnnotation(Unique.class)!=null){
+            if(ReflectionUtil.isIdField(fields[i])||fields[i].getAnnotation(Unique.class)!=null){
                 continue;
             }
             sql = sql.replaceFirst("\\?",setParameter(instance, ps, parameterIndex, fields[i]));

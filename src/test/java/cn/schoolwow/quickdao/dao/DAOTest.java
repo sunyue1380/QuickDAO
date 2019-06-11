@@ -3,6 +3,7 @@ package cn.schoolwow.quickdao.dao;
 import cn.schoolwow.quickdao.QuickDAOTest;
 import cn.schoolwow.quickdao.entity.DataType;
 import cn.schoolwow.quickdao.entity.logic.Comment;
+import cn.schoolwow.quickdao.entity.logic.Dictionary;
 import cn.schoolwow.quickdao.entity.logic.PlayList;
 import cn.schoolwow.quickdao.entity.user.User;
 import cn.schoolwow.quickdao.entity.user.UserPlayList;
@@ -114,6 +115,18 @@ public class DAOTest extends QuickDAOTest{
         effect = dao.save(newComment);
         logger.debug("[添加一条新的评论]影响:{},id:{}",effect,newComment.getId());
         Assert.assertNotNull(dao.fetch(Comment.class,"author","_前端农民工"));
+    }
+
+    @Test
+    public void saveMulti(){
+        //两次保存同一对象
+        Dictionary dictionary = new Dictionary();
+        dictionary.setKey("key");
+        dictionary.setValue("value");
+        dao.save(dictionary);
+        logger.debug("[第一次保存dictionary]id:{}",dictionary.getId());
+        dao.save(dictionary);
+        logger.debug("[第二次保存dictionary]id:{}",dictionary.getId());
     }
 
     @Test
