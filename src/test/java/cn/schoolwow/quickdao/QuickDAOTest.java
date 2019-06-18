@@ -1,6 +1,8 @@
 package cn.schoolwow.quickdao;
 
 import cn.schoolwow.quickdao.dao.DAO;
+import cn.schoolwow.quickdao.domain.Entity;
+import cn.schoolwow.quickdao.util.ReflectionUtil;
 import cn.schoolwow.quickdao.util.SQLUtil;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
@@ -39,7 +41,7 @@ public class QuickDAOTest {
             DAO dao = QuickDAO.newInstance().dataSource(dataSources[i])
                     .packageName("cn.schoolwow.quickdao.entity")
                     .packageName("cn.schoolwow.quickdao.domain","d")
-                    .autoCreateTable(false)
+                    .autoCreateTable(true)
                     .build();
             try {
                 initialDatabase(dao);
@@ -60,15 +62,15 @@ public class QuickDAOTest {
         }
         scanner.close();
         JSONArray array = JSON.parseArray(sb.toString());
+        Collection<Entity> entityList = ReflectionUtil.entityMap.values();
         for(int i=0;i<array.size();i++){
             JSONObject o = array.getJSONObject(i);
-            Set<Map.Entry<String,String>> entrySet = SQLUtil.classTableMap.entrySet();
-            for(Map.Entry<String,String> entry:entrySet){
-                if(entry.getValue().equals(o.getString("table"))){
-                    Class _class = Class.forName(entry.getKey());
-                    dao.drop(_class);
-                    dao.create(_class);
-                    List list = o.getJSONArray("rows").toJavaList(_class);
+            String tableName = o.getString("table");
+            for(Entity entity:entityList){
+                if(entity.tableName.equals(tableName)){
+                    dao.drop(entity._class);
+                    dao.create(entity._class);
+                    List list = o.getJSONArray("rows").toJavaList(entity._class);
                     dao.save(list);
                     break;
                 }

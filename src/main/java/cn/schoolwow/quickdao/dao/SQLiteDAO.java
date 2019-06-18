@@ -1,8 +1,8 @@
 package cn.schoolwow.quickdao.dao;
 
-import cn.schoolwow.quickdao.domain.QuickDAOConfig;
-import com.alibaba.fastjson.JSONArray;
-import com.alibaba.fastjson.JSONObject;
+import cn.schoolwow.quickdao.domain.Entity;
+import cn.schoolwow.quickdao.domain.Property;
+import cn.schoolwow.quickdao.util.QuickDAOConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -11,6 +11,9 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 
 public class SQLiteDAO extends AbstractDAO{
     Logger logger = LoggerFactory.getLogger(SQLiteDAO.class);
@@ -35,38 +38,33 @@ public class SQLiteDAO extends AbstractDAO{
     }
 
     /**创建新表*/
-    protected void createTable(JSONObject entity,Connection connection) throws SQLException {
-        String tableName = entity.getString("tableName");
-        StringBuilder createTableBuilder = new StringBuilder("create table `" + tableName + "`(");
-        if(entity.containsKey("comment")){
-            createTableBuilder.append("/*"+entity.getString("comment")+"*/");
+    protected void createTable(Entity entity,Connection connection) throws SQLException {
+        StringBuilder createTableBuilder = new StringBuilder("create table `" + entity.tableName + "`(");
+        if(null!=entity.comment){
+            createTableBuilder.append("/*"+entity.comment+"*/");
         }
-        JSONArray properties = entity.getJSONArray("properties");
-        for (int j = 0; j < properties.size(); j++) {
-            JSONObject property = properties.getJSONObject(j);
-            if (property.getBoolean("ignore")) {
-                continue;
-            }
-            createTableBuilder.append("`" + property.getString("column") + "` " + property.getString("columnType"));
-            if (property.getBoolean("id")) {
-                //主键新增
+        Property[] properties = entity.properties;
+        for(Property property:properties){
+            createTableBuilder.append("`" + property.column + "` " + property.columnType);
+            if(property.id){
                 createTableBuilder.append(" primary key " + getSyntax(Syntax.AutoIncrement));
-            } else {
-                if (property.containsKey("default")) {
-                    createTableBuilder.append(" default " + property.getString("default"));
+            }else{
+                if(null!=property.defaultValue){
+                    createTableBuilder.append(" default " + property.defaultValue);
                 }
-                if (property.getBoolean("notNull")) {
+                if(property.notNull){
                     createTableBuilder.append(" not null ");
                 }
             }
-            createTableBuilder.append(" " + getSyntax(Syntax.Comment, property.getString("comment")));
+            if(null!=property.comment){
+                createTableBuilder.append(" " + getSyntax(Syntax.Comment, property.comment));
+            }
             createTableBuilder.append(",");
         }
         if(QuickDAOConfig.openForeignKey){
-            JSONArray foreignKeyProperties = entity.getJSONArray("foreignKeyProperties");
-            for(int j=0;j<foreignKeyProperties.size();j++){
-                JSONObject property = foreignKeyProperties.getJSONObject(j);
-                createTableBuilder.append("foreign key(`"+property.getString("column")+"`) references "+property.getString("foreignKey")+",");
+            Property[] foreignKeyProperties = entity.foreignKeyProperties;
+            for(Property property:foreignKeyProperties){
+                createTableBuilder.append("foreign key(`"+property.column+"`) references "+property.foreignKey+",");
             }
             //手动开启外键约束
             connection.prepareStatement("PRAGMA foreign_keys = ON;").executeUpdate();
@@ -74,67 +72,64 @@ public class SQLiteDAO extends AbstractDAO{
         createTableBuilder.deleteCharAt(createTableBuilder.length() - 1);
         createTableBuilder.append(")");
         String sql = createTableBuilder.toString().replaceAll("\\s+", " ");
-        logger.debug("[生成新表{}=>{}]执行sql:{}", entity.getString("className"), tableName, sql);
+        logger.debug("[生成新表]类名:{},表名:{},执行sql:{}", entity.className, entity.tableName, sql);
         connection.prepareStatement(sql).executeUpdate();
         createUniqueKey(entity,connection);
     }
 
     /**创建唯一索引*/
-    protected void createUniqueKey(JSONObject entity,Connection connection) throws SQLException {
-        String tableName = entity.getString("tableName");
-        JSONArray uniqueKeyProperties = entity.getJSONArray("uniqueKeyProperties");
-        if(uniqueKeyProperties.size()==0){
+    protected void createUniqueKey(Entity entity,Connection connection) throws SQLException {
+        Property[] uniqueKeyProperties = entity.uniqueKeyProperties;
+        if(null==uniqueKeyProperties||uniqueKeyProperties.length==0){
             return;
         }
-        StringBuilder uniqueKeyBuilder = new StringBuilder("create unique index `"+tableName+"_unique_index` on `"+tableName+"` (");
-        for(int i=0;i<uniqueKeyProperties.size();i++){
-            uniqueKeyBuilder.append("`"+uniqueKeyProperties.getString(i)+"`,");
+        StringBuilder uniqueKeyBuilder = new StringBuilder("create unique index `"+entity.tableName+"_unique_index` on `"+entity.tableName+"` (");
+        for(Property property:uniqueKeyProperties){
+            uniqueKeyBuilder.append("`"+property.column+"`,");
         }
         uniqueKeyBuilder.deleteCharAt(uniqueKeyBuilder.length()-1);
         uniqueKeyBuilder.append(");");
         String uniqueKeySQL = uniqueKeyBuilder.toString().replaceAll("\\s+", " ");
-        logger.debug("[添加唯一性约束]表:{},执行SQL:{}",tableName,uniqueKeySQL);
+        logger.debug("[添加唯一性约束]表:{},执行SQL:{}",entity.tableName,uniqueKeySQL);
         connection.prepareStatement(uniqueKeySQL).executeUpdate();
     }
 
-    protected void createForeignKey(JSONArray entityList,Connection connection) throws SQLException {
+    protected void createForeignKey(Collection entityList, Connection connection) throws SQLException {
 
     }
 
     @Override
-    public JSONArray getDatabaseInfo() throws SQLException {
+    public Entity[] getDatabaseInfo() throws SQLException {
         Connection connection = dataSource.getConnection();
         connection.setAutoCommit(false);
         PreparedStatement tablePs = connection.prepareStatement("select name from sqlite_master where type='table';");
         ResultSet tableRs = tablePs.executeQuery();
-        //(1)获取所有表
-        JSONArray entityList = new JSONArray();
+        List<Entity> entityList = new ArrayList<>();
         while (tableRs.next()) {
-            JSONObject entity = new JSONObject();
-            entity.put("tableName",tableRs.getString(1));
+            Entity entity = new Entity();
+            entity.tableName = tableRs.getString(1);
 
-            JSONArray properties = new JSONArray();
+            List<Property> propertyList = new ArrayList<>();
             PreparedStatement propertyPs = connection.prepareStatement("PRAGMA table_info(`" + tableRs.getString(1) + "`)");
             ResultSet propertiesRs = propertyPs.executeQuery();
             while (propertiesRs.next()) {
-                JSONObject property = new JSONObject();
-                property.put("column", propertiesRs.getString("name"));
-                property.put("columnType", propertiesRs.getString("type"));
-                property.put("notNull","1".equals(propertiesRs.getString("notnull")));
-                if (null != propertiesRs.getString("dflt_value")) {
-                    property.put("default", propertiesRs.getString("dflt_value"));
+                Property property = new Property();
+                property.column = propertiesRs.getString("name");
+                property.columnType = propertiesRs.getString("type");
+                property.notNull = "1".equals(propertiesRs.getString("notnull"));
+                if(null!=propertiesRs.getString("dflt_value")){
+                    property.defaultValue = propertiesRs.getString("dflt_value");
                 }
-                properties.add(property);
+                propertyList.add(property);
             }
-            entity.put("properties",properties);
+            entity.properties = propertyList.toArray(new Property[0]);
             entityList.add(entity);
-
             propertiesRs.close();
             propertyPs.close();
         }
         tableRs.close();
         tablePs.close();
         connection.close();
-        return entityList;
+        return entityList.toArray(new Entity[0]);
     }
 }

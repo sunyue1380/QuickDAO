@@ -1,7 +1,7 @@
 package cn.schoolwow.quickdao.dao;
 
 import cn.schoolwow.quickdao.QuickDAOTest;
-import cn.schoolwow.quickdao.entity.DataType;
+import cn.schoolwow.quickdao.entity.logic.DataType;
 import cn.schoolwow.quickdao.entity.logic.Comment;
 import cn.schoolwow.quickdao.entity.logic.Dictionary;
 import cn.schoolwow.quickdao.entity.logic.PlayList;

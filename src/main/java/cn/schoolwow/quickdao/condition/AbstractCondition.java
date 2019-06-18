@@ -1,8 +1,9 @@
 package cn.schoolwow.quickdao.condition;
 
-import cn.schoolwow.quickdao.annotation.Ignore;
 import cn.schoolwow.quickdao.dao.AbstractDAO;
+import cn.schoolwow.quickdao.domain.Entity;
 import cn.schoolwow.quickdao.domain.PageVo;
+import cn.schoolwow.quickdao.domain.Property;
 import cn.schoolwow.quickdao.util.ReflectionUtil;
 import cn.schoolwow.quickdao.util.SQLUtil;
 import cn.schoolwow.quickdao.util.StringUtil;
@@ -106,11 +107,13 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
 
     protected PageVo<T> pageVo = null;
 
+    private transient Entity entity;
     private static String[] patterns = new String[]{"%", "_", "[", "[^", "[!", "]"};
 
     public AbstractCondition(Class<T> _class, DataSource dataSource, AbstractDAO abstractDAO) {
         this._class = _class;
-        this.tableName = "`" + SQLUtil.classTableMap.get(_class.getName()) + "`";
+        this.entity = ReflectionUtil.entityMap.get(_class.getName());
+        this.tableName = "`" + entity.tableName + "`";
         this.dataSource = dataSource;
         this.abstractDAO = abstractDAO;
     }
@@ -222,28 +225,28 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
     public Condition addJSONObjectQuery(JSONObject queryCondition) {
         //主键查询
         {
-            Field[] fields = ReflectionUtil.getFields(this._class);
-            for (Field field : fields) {
-                if (queryCondition.containsKey(field.getName())) {
-                    addQuery(field.getName(), queryCondition.get(field.getName()));
+            Property[] properties = entity.properties;
+            for (Property property : properties) {
+                if (queryCondition.containsKey(property.name)) {
+                    addQuery(property.name, queryCondition.get(property.name));
                 }
-                if (queryCondition.containsKey(field.getName() + "Start")) {
-                    addQuery(field.getName(), ">=", queryCondition.get(field.getName() + "Start"));
+                if (queryCondition.containsKey(property.name + "Start")) {
+                    addQuery(property.name, ">=", queryCondition.get(property.name + "Start"));
                 }
-                if (queryCondition.containsKey(field.getName() + "End")) {
-                    addQuery(field.getName(), "<=", queryCondition.get(field.getName() + "End"));
+                if (queryCondition.containsKey(property.name + "End")) {
+                    addQuery(property.name, "<=", queryCondition.get(property.name + "End"));
                 }
-                if (queryCondition.containsKey(field.getName() + "IN")) {
-                    addInQuery(field.getName(), queryCondition.getJSONArray(field.getName() + "IN"));
+                if (queryCondition.containsKey(property.name + "IN")) {
+                    addInQuery(property.name, queryCondition.getJSONArray(property.name + "IN"));
                 }
-                if (queryCondition.containsKey(field.getName() + "NOTNULL")) {
-                    addNotNullQuery(field.getName());
+                if (queryCondition.containsKey(property.name + "NOTNULL")) {
+                    addNotNullQuery(property.name);
                 }
-                if (queryCondition.containsKey(field.getName() + "NULL")) {
-                    addNullQuery(field.getName());
+                if (queryCondition.containsKey(property.name + "NULL")) {
+                    addNullQuery(property.name);
                 }
-                if (queryCondition.containsKey(field.getName() + "NOTEMPTY")) {
-                    addNotEmptyQuery(field.getName());
+                if (queryCondition.containsKey(property.name + "NOTEMPTY")) {
+                    addNotEmptyQuery(property.name);
                 }
             }
             if(queryCondition.containsKey("_orderBy")){
@@ -279,28 +282,28 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
                     String primaryField = joinTableObject.getString("_primaryField");
                     String joinTableField = joinTableObject.getString("_joinTableField");
                     SubCondition subCondition = joinTable(_class,primaryField,joinTableField);
-                    Field[] fields = ReflectionUtil.getFields(_class);
-                    for (Field field : fields) {
-                        if (joinTableObject.containsKey(field.getName())) {
-                            subCondition.addQuery(field.getName(), joinTableObject.get(field.getName()));
+                    Property[] properties = ReflectionUtil.entityMap.get(_class.getName()).properties;
+                    for (Property property:properties) {
+                        if (joinTableObject.containsKey(property.name)) {
+                            subCondition.addQuery(property.name, joinTableObject.get(property.name));
                         }
-                        if (joinTableObject.containsKey(field.getName() + "Start")) {
-                            subCondition.addQuery(field.getName(), ">=", joinTableObject.get(field.getName() + "Start"));
+                        if (joinTableObject.containsKey(property.name + "Start")) {
+                            subCondition.addQuery(property.name, ">=", joinTableObject.get(property.name + "Start"));
                         }
-                        if (joinTableObject.containsKey(field.getName() + "End")) {
-                            subCondition.addQuery(field.getName(), "<=", joinTableObject.get(field.getName() + "End"));
+                        if (joinTableObject.containsKey(property.name + "End")) {
+                            subCondition.addQuery(property.name, "<=", joinTableObject.get(property.name + "End"));
                         }
-                        if (joinTableObject.containsKey(field.getName() + "IN")) {
-                            subCondition.addInQuery(field.getName(), joinTableObject.getJSONArray(field.getName() + "IN"));
+                        if (joinTableObject.containsKey(property.name + "IN")) {
+                            subCondition.addInQuery(property.name, joinTableObject.getJSONArray(property.name + "IN"));
                         }
-                        if (joinTableObject.containsKey(field.getName() + "NOTNULL")) {
-                            subCondition.addNotNullQuery(field.getName());
+                        if (joinTableObject.containsKey(property.name + "NOTNULL")) {
+                            subCondition.addNotNullQuery(property.name);
                         }
-                        if (joinTableObject.containsKey(field.getName() + "NULL")) {
-                            subCondition.addNullQuery(field.getName());
+                        if (joinTableObject.containsKey(property.name + "NULL")) {
+                            subCondition.addNullQuery(property.name);
                         }
-                        if (joinTableObject.containsKey(field.getName() + "NOTEMPTY")) {
-                            subCondition.addNotEmptyQuery(field.getName());
+                        if (joinTableObject.containsKey(property.name + "NOTEMPTY")) {
+                            subCondition.addNotEmptyQuery(property.name);
                         }
                     }
                     if(joinTableObject.containsKey("_orderBy")){
@@ -787,10 +790,9 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
             AbstractCondition abstractCondition = (AbstractCondition) ois.readObject();
             abstractCondition.dataSource = this.dataSource;
             abstractCondition.abstractDAO = this.abstractDAO;
+            abstractCondition.entity = this.entity;
             return abstractCondition;
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (ClassNotFoundException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
         return null;
@@ -825,12 +827,13 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
     protected void addJoinTableStatement() {
         for (AbstractSubCondition abstractSubCondition : subConditionList) {
             AbstractSubCondition parentSubCondition = (AbstractSubCondition) abstractSubCondition.parentSubCondition;
+            Entity entity = ReflectionUtil.entityMap.get(abstractSubCondition._class.getName());
             if(parentSubCondition==null){
                 //如果parentSubCondition为空,则为主表关联子表
-                sqlBuilder.append(abstractSubCondition.join+" `" + SQLUtil.classTableMap.get(abstractSubCondition._class.getName()) + "` as " + abstractSubCondition.tableAliasName + " on t." + StringUtil.Camel2Underline(abstractSubCondition.primaryField) + " = " + StringUtil.Camel2Underline(abstractSubCondition.tableAliasName) + "." + StringUtil.Camel2Underline(abstractSubCondition.joinTableField) + " ");
+                sqlBuilder.append(abstractSubCondition.join+" `" + entity.tableName + "` as " + abstractSubCondition.tableAliasName + " on t." + abstractSubCondition.primaryField + " = " + abstractSubCondition.tableAliasName + "." + abstractSubCondition.joinTableField + " ");
             }else{
                 //如果parentSubCondition不为空,则为子表关联子表
-                sqlBuilder.append(abstractSubCondition.join+" `" + SQLUtil.classTableMap.get(abstractSubCondition._class.getName()) + "` as " + abstractSubCondition.tableAliasName + " on "+abstractSubCondition.tableAliasName+"." + StringUtil.Camel2Underline(abstractSubCondition.joinTableField) + " = " + StringUtil.Camel2Underline(parentSubCondition.tableAliasName) + "." + StringUtil.Camel2Underline(abstractSubCondition.primaryField) + " ");
+                sqlBuilder.append(abstractSubCondition.join+" `" + entity.tableName + "` as " + abstractSubCondition.tableAliasName + " on "+abstractSubCondition.tableAliasName+"." + abstractSubCondition.joinTableField + " = " + parentSubCondition.tableAliasName + "." + abstractSubCondition.primaryField + " ");
             }
         }
     }
@@ -899,14 +902,22 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
 
     /**找到mainClass中第一个类型为_class的字段名称*/
     private String getFirstClassFieldInMainClass(Class mainClass,Class _class){
-        //获取第一个类型为_class的字段名
-        Field[] fields = ReflectionUtil.getCompositField(mainClass, _class);
-        if (fields == null || fields.length == 0) {
+        Entity entity = ReflectionUtil.entityMap.get(mainClass.getName());
+        Field[] fields = entity.compositFields;
+        if(fields==null||fields.length==0){
             return null;
         }
-        if (fields.length == 1) {
-            return fields[0].getName();
-        } else {
+        int count = 0;
+        String fieldName = null;
+        for(Field field:fields){
+            if(field.getType().getName().equalsIgnoreCase(_class.getName())){
+                fieldName = field.getName();
+                count++;
+            }
+        }
+        if(count==1){
+            return fieldName;
+        }else{
             throw new IllegalArgumentException("类[" + mainClass.getName() + "]存在[" + fields.length + "]个类型为[" + _class.getName() + "]的成员变量!");
         }
     }
@@ -914,12 +925,9 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
     /**获取子对象属性值*/
     private JSONObject getSubObject(Class _class,String tableAliasName,ResultSet resultSet) throws SQLException {
         JSONObject subObject = new JSONObject();
-        Field[] subFields = ReflectionUtil.getFields(_class);
-        for (Field field : subFields) {
-            if (field.getAnnotation(Ignore.class) != null) {
-                continue;
-            }
-            setValue(tableAliasName,field,subObject,resultSet);
+        Property[] properties = ReflectionUtil.entityMap.get(_class.getName()).properties;
+        for(Property property:properties){
+            setValue(tableAliasName,property.field,subObject,resultSet);
         }
         return subObject;
     }
@@ -979,9 +987,9 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
         public AbstractSubCondition(Class<T> _class, String tableAliasName, String primaryField, String joinTableField, String compositField, Condition condition) {
             this._class = _class;
             this.tableAliasName = tableAliasName;
-            this.primaryField = primaryField;
-            this.joinTableField = joinTableField;
-            this.compositField = compositField;
+            this.primaryField = StringUtil.Camel2Underline(primaryField);
+            this.joinTableField = StringUtil.Camel2Underline(joinTableField);
+            this.compositField = StringUtil.Camel2Underline(compositField);
             this.condition = condition;
         }
 

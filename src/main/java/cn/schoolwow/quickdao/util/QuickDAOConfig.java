@@ -1,4 +1,4 @@
-package cn.schoolwow.quickdao.domain;
+package cn.schoolwow.quickdao.util;
 
 import javax.sql.DataSource;
 import java.util.HashMap;

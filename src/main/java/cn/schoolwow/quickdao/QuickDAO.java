@@ -1,7 +1,8 @@
 package cn.schoolwow.quickdao;
 
 import cn.schoolwow.quickdao.dao.*;
-import cn.schoolwow.quickdao.domain.QuickDAOConfig;
+import cn.schoolwow.quickdao.util.QuickDAOConfig;
+import cn.schoolwow.quickdao.util.ReflectionUtil;
 import cn.schoolwow.quickdao.util.ValidateUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -87,11 +88,13 @@ public class QuickDAO {
             if(dao==null){
                 throw new UnsupportedOperationException("当前数据源没有合适的适配器.数据源地址:"+url);
             }
+            ReflectionUtil.getEntityInfo();
+            //自动建表
+            dao.autoBuildDatabase();
         } catch (Exception e) {
             e.printStackTrace();
+            throw new RuntimeException(e);
         }
-        //自动建表
-        dao.autoBuildDatabase();
         return dao;
     }
 }
