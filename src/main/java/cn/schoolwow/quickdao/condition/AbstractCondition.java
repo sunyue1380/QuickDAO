@@ -220,53 +220,115 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
 
     @Override
     public Condition addJSONObjectQuery(JSONObject queryCondition) {
-        Field[] fields = ReflectionUtil.getFields(_class);
-        for (Field field : fields) {
-            if (queryCondition.containsKey(field.getName())) {
-                addQuery(field.getName(), queryCondition.get(field.getName()));
+        //主键查询
+        {
+            Field[] fields = ReflectionUtil.getFields(this._class);
+            for (Field field : fields) {
+                if (queryCondition.containsKey(field.getName())) {
+                    addQuery(field.getName(), queryCondition.get(field.getName()));
+                }
+                if (queryCondition.containsKey(field.getName() + "Start")) {
+                    addQuery(field.getName(), ">=", queryCondition.get(field.getName() + "Start"));
+                }
+                if (queryCondition.containsKey(field.getName() + "End")) {
+                    addQuery(field.getName(), "<=", queryCondition.get(field.getName() + "End"));
+                }
+                if (queryCondition.containsKey(field.getName() + "IN")) {
+                    addInQuery(field.getName(), queryCondition.getJSONArray(field.getName() + "IN"));
+                }
+                if (queryCondition.containsKey(field.getName() + "NOTNULL")) {
+                    addNotNullQuery(field.getName());
+                }
+                if (queryCondition.containsKey(field.getName() + "NULL")) {
+                    addNullQuery(field.getName());
+                }
+                if (queryCondition.containsKey(field.getName() + "NOTEMPTY")) {
+                    addNotEmptyQuery(field.getName());
+                }
             }
-            if (queryCondition.containsKey(field.getName() + "Start")) {
-                addQuery(field.getName(), ">=", queryCondition.get(field.getName() + "Start"));
-            }
-            if (queryCondition.containsKey(field.getName() + "End")) {
-                addQuery(field.getName(), "<=", queryCondition.get(field.getName() + "End"));
-            }
-            if (queryCondition.containsKey(field.getName() + "IN")) {
-                addInQuery(field.getName(), queryCondition.getJSONArray(field.getName() + "IN"));
-            }
-            if (queryCondition.containsKey(field.getName() + "NOTNULL")) {
-                addNotNullQuery(field.getName());
-            }
-            if (queryCondition.containsKey(field.getName() + "NULL")) {
-                addNullQuery(field.getName());
-            }
-            if (queryCondition.containsKey(field.getName() + "NOTEMPTY")) {
-                addNotEmptyQuery(field.getName());
-            }
-        }
-        String[] orders = {"_orderBy", "_orderByDesc"};
-        for (String order : orders) {
-            if (queryCondition.containsKey(order)) {
-                if (queryCondition.get(order) instanceof String) {
-                    if ("_orderBy".equals(order)) {
-                        orderBy(queryCondition.getString(order));
-                    } else {
-                        orderByDesc(queryCondition.getString(order));
-                    }
-                } else if (queryCondition.get(order) instanceof String) {
-                    JSONArray array = queryCondition.getJSONArray(order);
-                    for (int i = 0; i < array.size(); i++) {
-                        if ("_orderBy".equals(order)) {
-                            orderBy(queryCondition.getString(order));
-                        } else {
-                            orderByDesc(queryCondition.getString(order));
-                        }
+            if(queryCondition.containsKey("_orderBy")){
+                if(queryCondition.get("_orderBy") instanceof String){
+                    orderBy(queryCondition.getString("_orderBy"));
+                }else if(queryCondition.get("_orderBy") instanceof JSONArray){
+                    JSONArray array = queryCondition.getJSONArray("_orderBy");
+                    for(int i=0;i<array.size();i++){
+                        orderBy(array.getString(i));
                     }
                 }
             }
+            if(queryCondition.containsKey("_orderByDesc")){
+                if(queryCondition.get("_orderByDesc") instanceof String){
+                    orderByDesc(queryCondition.getString("_orderByDesc"));
+                }else if(queryCondition.get("_orderByDesc") instanceof JSONArray){
+                    JSONArray array = queryCondition.getJSONArray("_orderByDesc");
+                    for(int i=0;i<array.size();i++){
+                        orderByDesc(array.getString(i));
+                    }
+                }
+            }
+            if (queryCondition.containsKey("_pageNumber") && queryCondition.containsKey("_pageSize")) {
+                page(queryCondition.getInteger("_pageNumber"), queryCondition.getInteger("_pageSize"));
+            }
         }
-        if (queryCondition.containsKey("_pageNumber") && queryCondition.containsKey("_pageSize")) {
-            page(queryCondition.getInteger("_pageNumber"), queryCondition.getInteger("_pageSize"));
+        //外键关联查询
+        {
+            JSONObject joinTableObject = queryCondition.getJSONObject("_joinTable");
+            if(joinTableObject!=null){
+                try {
+                    Class _class = Class.forName(joinTableObject.getString("_class"));
+                    String primaryField = joinTableObject.getString("_primaryField");
+                    String joinTableField = joinTableObject.getString("_joinTableField");
+                    SubCondition subCondition = joinTable(_class,primaryField,joinTableField);
+                    Field[] fields = ReflectionUtil.getFields(_class);
+                    for (Field field : fields) {
+                        if (joinTableObject.containsKey(field.getName())) {
+                            subCondition.addQuery(field.getName(), joinTableObject.get(field.getName()));
+                        }
+                        if (joinTableObject.containsKey(field.getName() + "Start")) {
+                            subCondition.addQuery(field.getName(), ">=", joinTableObject.get(field.getName() + "Start"));
+                        }
+                        if (joinTableObject.containsKey(field.getName() + "End")) {
+                            subCondition.addQuery(field.getName(), "<=", joinTableObject.get(field.getName() + "End"));
+                        }
+                        if (joinTableObject.containsKey(field.getName() + "IN")) {
+                            subCondition.addInQuery(field.getName(), joinTableObject.getJSONArray(field.getName() + "IN"));
+                        }
+                        if (joinTableObject.containsKey(field.getName() + "NOTNULL")) {
+                            subCondition.addNotNullQuery(field.getName());
+                        }
+                        if (joinTableObject.containsKey(field.getName() + "NULL")) {
+                            subCondition.addNullQuery(field.getName());
+                        }
+                        if (joinTableObject.containsKey(field.getName() + "NOTEMPTY")) {
+                            subCondition.addNotEmptyQuery(field.getName());
+                        }
+                    }
+                    if(joinTableObject.containsKey("_orderBy")){
+                        if(joinTableObject.get("_orderBy") instanceof String){
+                            subCondition.orderBy(joinTableObject.getString("_orderBy"));
+                        }else if(joinTableObject.get("_orderBy") instanceof JSONArray){
+                            JSONArray array = joinTableObject.getJSONArray("_orderBy");
+                            for(int i=0;i<array.size();i++){
+                                subCondition.orderBy(array.getString(i));
+                            }
+                        }
+                    }
+                    if(joinTableObject.containsKey("_orderByDesc")){
+                        if(joinTableObject.get("_orderByDesc") instanceof String){
+                            subCondition.orderByDesc(joinTableObject.getString("_orderByDesc"));
+                        }else if(joinTableObject.get("_orderByDesc") instanceof JSONArray){
+                            JSONArray array = joinTableObject.getJSONArray("_orderByDesc");
+                            for(int i=0;i<array.size();i++){
+                                subCondition.orderByDesc(array.getString(i));
+                            }
+                        }
+                    }
+                    subCondition.done();
+                }catch (Exception e){
+                    e.printStackTrace();
+                    logger.warn("[自定义查询异常]异常:{}",e.getMessage());
+                }
+            }
         }
         return this;
     }

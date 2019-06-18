@@ -7,10 +7,7 @@ import cn.schoolwow.quickdao.entity.logic.Dictionary;
 import cn.schoolwow.quickdao.entity.logic.PlayList;
 import cn.schoolwow.quickdao.entity.user.User;
 import cn.schoolwow.quickdao.entity.user.UserPlayList;
-import cn.schoolwow.quickdao.util.SQLUtil;
 import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONArray;
-import com.alibaba.fastjson.JSONObject;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -19,10 +16,8 @@ import org.junit.runners.Parameterized;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.jws.soap.SOAPBinding;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.util.*;
+import java.util.Date;
+import java.util.List;
 
 @RunWith(Parameterized.class)
 public class DAOTest extends QuickDAOTest{

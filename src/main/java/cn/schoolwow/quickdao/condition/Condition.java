@@ -78,6 +78,7 @@ public interface Condition<T> {
     Condition addQuery(String field, String operator, Object value);
     /**
      * 添加自定义查询条件<br/>
+     * <p>目前只支持关联一次外键查询</p>
      * <code>
      *     {<br/>
      *         {field}:{value},字段查询<br/>
@@ -90,6 +91,20 @@ public interface Condition<T> {
      *         _orderByDesc:{value},降序排列<br/>
      *         _pageNumber:{value},页码<br/>
      *         _pageSize:{value},每页个数<br/>
+     *         //关联查询部分
+     *         _joinTable:{
+     *             _class:{className} 关联类,例如<b>top.cqscrb.courage.entity.User</b><br/>
+     *             _primaryField:{primaryField} 主表关联字段<br/>
+     *             _joinTableField:{joinTableField} 子表关联字段<br/>
+     *             {field}:{value},字段查询<br/>
+     *             {field}Start:{value},添加大于等于查询<br/>
+     *             {field}End:{value},添加小于等于查询<br/>
+     *             {field}IN:[array],添加IN查询<br/>
+     *             {field}NOTNULL:{value},添加not null查询<br/>
+     *             {field}NULL:{value},添加null查询<br/>
+     *             _orderBy:{value},升序排列<br/>
+     *             _orderByDesc:{value},降序排列<br/>
+     *         }
      *     }<br/>
      * </code>
      * */

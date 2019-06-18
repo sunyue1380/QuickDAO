@@ -51,6 +51,34 @@ public class ConditionTest extends QuickDAOTest{
     }
 
     @Test
+    public void testAddJSONObjectQueryWithJoinTable(){
+        JSONObject queryCondition = new JSONObject();
+        queryCondition.put("username","@");
+        queryCondition.put("typeStart",1);
+        queryCondition.put("tokenIN",new String[]{"7a746f17a9bf4903b09b617135152c71","9204d99472c04ce7abf1bcb9773b0d49"});
+        queryCondition.put("lastLoginNOTNULL",null);
+        JSONArray _orderByDesc = new JSONArray();
+        _orderByDesc.add("uid");
+        _orderByDesc.add("type");
+        queryCondition.put("_orderByDesc",_orderByDesc);
+        queryCondition.put("_pageNumber",1);
+        queryCondition.put("_pageSize",10);
+
+        JSONObject joinTable = new JSONObject();
+        joinTable.put("_class","cn.schoolwow.quickdao.entity.logic.Project");
+        joinTable.put("_primaryField","project");
+        joinTable.put("_joinTableField","key");
+        joinTable.put("key","blockchain");
+        queryCondition.put("_joinTable",joinTable);
+
+        PageVo<User> userPageVo = dao.query(User.class)
+                .addJSONObjectQuery(queryCondition)
+                .getPagingList();
+        logger.info("[自定义查询条件]查询结果:{}",JSON.toJSONString(userPageVo));
+        Assert.assertEquals(2,userPageVo.getTotalSize());
+    }
+
+    @Test
     public void testAddJSONObjectQuery(){
         JSONObject queryCondition = new JSONObject();
         queryCondition.put("username","@");
