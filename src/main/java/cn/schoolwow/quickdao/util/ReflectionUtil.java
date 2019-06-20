@@ -3,7 +3,6 @@ package cn.schoolwow.quickdao.util;
 import cn.schoolwow.quickdao.annotation.*;
 import cn.schoolwow.quickdao.domain.Entity;
 import cn.schoolwow.quickdao.domain.Property;
-import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import org.slf4j.Logger;
@@ -62,11 +61,12 @@ public class ReflectionUtil {
     public static String setValueWithInsertIgnore(PreparedStatement ps,Object instance,String sql) throws SQLException, IllegalAccessException {
         int parameterIndex = 1;
         Property[] properties = ReflectionUtil.entityMap.get(instance.getClass().getName()).properties;
+        sql = sql.replace("?","##?##");
         for(Property property:properties){
             if(property.id){
                 continue;
             }
-            sql = sql.replaceFirst("\\?",setParameter(instance, ps, parameterIndex, property.field));
+            sql = sql.replaceFirst("##\\?##",setParameter(instance, ps, parameterIndex, property.field));
             parameterIndex++;
         }
         return sql;
@@ -79,16 +79,17 @@ public class ReflectionUtil {
         int parameterIndex = 1;
         Property[] properties = ReflectionUtil.entityMap.get(instance.getClass().getName()).properties;
         Property id = null;
+        sql = sql.replace("?","##?##");
         for(Property property:properties){
             if(property.id){
                 id = property;
                 continue;
             }
-            sql = sql.replaceFirst("\\?",setParameter(instance, ps, parameterIndex, property.field));
+            sql = sql.replaceFirst("##\\?##",setParameter(instance, ps, parameterIndex, property.field));
             parameterIndex++;
         }
         //再设置id属性
-        sql.replaceFirst("\\?",setParameter(instance,ps,parameterIndex,id.field));
+        sql.replaceFirst("##\\?##",setParameter(instance,ps,parameterIndex,id.field));
         return sql;
     }
 
@@ -98,18 +99,19 @@ public class ReflectionUtil {
     public static String setValueWithUpdateByUniqueKey(PreparedStatement ps,Object instance,String sql) throws SQLException, IllegalAccessException {
         int parameterIndex = 1;
         Property[] properties = ReflectionUtil.entityMap.get(instance.getClass().getName()).properties;
+        sql = sql.replace("?","##?##");
         for(Property property:properties){
             //先设置非id和Unique字段
             if(property.id||property.unique){
                 continue;
             }
-            sql = sql.replaceFirst("\\?",setParameter(instance, ps, parameterIndex, property.field));
+            sql = sql.replaceFirst("##\\?##",setParameter(instance, ps, parameterIndex, property.field));
             parameterIndex++;
         }
         for(Property property:properties){
             //再设置Unique字段查询条件
             if(property.unique){
-                sql = sql.replaceFirst("\\?",setParameter(instance, ps, parameterIndex, property.field));
+                sql = sql.replaceFirst("##\\?##",setParameter(instance, ps, parameterIndex, property.field));
                 parameterIndex++;
             }
         }
