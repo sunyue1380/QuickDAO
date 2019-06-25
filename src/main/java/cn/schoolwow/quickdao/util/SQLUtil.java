@@ -14,7 +14,7 @@ public class SQLUtil {
         String key = "fetch_" + _class.getName()+"_"+property;
         if (!sqlCache.containsKey(key)) {
             String tableName = ReflectionUtil.entityMap.get(_class.getName()).tableName;
-            String fetchSQL = "select " + columns(_class,"t") + " from `" + tableName + "` as t where t.`"+StringUtil.Camel2Underline(property)+"` = ?";
+            String fetchSQL = "select " + columns(_class.getName(),"t") + " from `" + tableName + "` as t where t.`"+StringUtil.Camel2Underline(property)+"` = ?";
             sqlCache.put(key, fetchSQL);
         }
         return sqlCache.get(key);
@@ -25,7 +25,7 @@ public class SQLUtil {
         String key = "fetch_" + _class.getName()+"_"+property;
         if (!sqlCache.containsKey(key)) {
             String tableName = ReflectionUtil.entityMap.get(_class.getName()).tableName;
-            String fetchSQL = "select " + columns(_class,"t") + " from `" + tableName + "` as t where t.`"+StringUtil.Camel2Underline(property)+"` is null";
+            String fetchSQL = "select " + columns(_class.getName(),"t") + " from `" + tableName + "` as t where t.`"+StringUtil.Camel2Underline(property)+"` is null";
             sqlCache.put(key, fetchSQL);
         }
         return sqlCache.get(key);
@@ -122,11 +122,11 @@ public class SQLUtil {
     }
 
     /**返回列名的SQL语句*/
-    public static String columns(Class _class,String tableAlias){
-        String key = "columnTable_"+_class.getName()+"_"+tableAlias;
+    public static String columns(String className,String tableAlias){
+        String key = "columnTable_"+className+"_"+tableAlias;
         if (!sqlCache.containsKey(key)){
             StringBuilder builder = new StringBuilder();
-            Property[] properties = ReflectionUtil.entityMap.get(_class.getName()).properties;
+            Property[] properties = ReflectionUtil.entityMap.get(className).properties;
             for(Property property:properties){
                 builder.append(tableAlias+".`"+property.column+"` as "+tableAlias+"_"+property.column+",");
             }

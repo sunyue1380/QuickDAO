@@ -13,6 +13,7 @@ import cn.schoolwow.quickdao.entity.user.User;
 import cn.schoolwow.quickdao.entity.user.UserPlayList;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -28,6 +29,36 @@ public class JoinConditionTest extends QuickDAOTest {
 
     public JoinConditionTest(DAO dao) {
         super(dao);
+    }
+
+    @Test
+    public void testAddJSONObjectQueryWithJoinTable(){
+        String condition = "{\n" +
+                "\t\"_joinTables\": [{\n" +
+                "\t\t\"uid\":2,\n" +
+                "\t\t\"_class\": \"cn.schoolwow.quickdao.entity.user.User\",\n" +
+                "\t\t\"_primaryField\": \"userId\",\n" +
+                "\t\t\"_joinTableField\": \"uid\"\n" +
+                "\t},\n" +
+                "\t{\n" +
+                "\t\t\"_class\": \"cn.schoolwow.quickdao.entity.user.Talk\",\n" +
+                "\t\t\"_primaryField\": \"talkId\",\n" +
+                "\t\t\"_joinTableField\": \"id\",\n" +
+                "\t\t\"_joinTables\": [{\n" +
+                "\t\t\t\"username\":\"sunyue@schoolwow.cn\",\n" +
+                "\t\t\t\"_class\": \"cn.schoolwow.quickdao.entity.user.User\",\n" +
+                "\t\t\t\"_primaryField\": \"userId\",\n" +
+                "\t\t\t\"_joinTableField\": \"uid\",\n" +
+                "\t\t\t\"_joinTables\": [{\n" +
+                "\t\t\t\t\"_class\": \"cn.schoolwow.quickdao.entity.logic.Project\",\n" +
+                "\t\t\t\t\"_primaryField\": \"project\",\n" +
+                "\t\t\t\t\"_joinTableField\": \"key\"\n" +
+                "\t\t\t}]\n" +
+                "\t\t}]\n" +
+                "\t}]\n" +
+                "}";
+        JSONObject queryCondition = JSON.parseObject(condition);
+        Assert.assertEquals(1,dao.query(Report.class).addJSONObjectQuery(queryCondition).getList().size());
     }
 
     @Test
@@ -95,7 +126,7 @@ public class JoinConditionTest extends QuickDAOTest {
                 .joinTable(Project.class, "project", "key")
                 .doneSubCondition()
                 .done()
-                .getCompositList();
+                .getList();
         logger.info("[子表关联查询]结果:{}", JSON.toJSONString(reportList));
         Assert.assertEquals(1, reportList.size());
     }

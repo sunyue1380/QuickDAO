@@ -16,35 +16,30 @@ public class SqliteCondition extends AbstractCondition{
 
     @Override
     public Condition addUpdate(String field, Object value) {
-        if(updateParameterList==null){
-            updateParameterList = new ArrayList();
+        if(query.updateParameterList==null){
+            query.updateParameterList = new ArrayList();
         }
-        setBuilder.append("`"+ StringUtil.Camel2Underline(field)+"`=?,");
-        updateParameterList.add(value);
+        query.setBuilder.append("`"+ StringUtil.Camel2Underline(field)+"`=?,");
+        query.updateParameterList.add(value);
         return this;
     }
 
     @Override
     public long update() {
         assureDone();
-        if(setBuilder.length()==0){
-            throw new IllegalArgumentException("请先调用addUpdate()函数!");
-        }
-        if(updateParameterList==null||updateParameterList.size()==0){
-            throw new IllegalArgumentException("请先调用addUpdate()函数!");
-        }
+        assureUpdate();
         sqlBuilder.setLength(0);
-        sqlBuilder.append("update "+tableName+" ");
-        sqlBuilder.append(setBuilder.toString()+" ");
-        sqlBuilder.append(whereBuilder.toString());
+        sqlBuilder.append("update "+query.tableName+" ");
+        sqlBuilder.append(query.setBuilder.toString()+" ");
+        sqlBuilder.append(query.whereBuilder.toString());
         sql = sqlBuilder.toString().replace("t."," ").replaceAll("\\s+"," ");
         logger.info("[批量更新]执行SQL语句:{}",sql);
 
         long effect = -1;
         try (Connection connection = dataSource.getConnection();
              PreparedStatement ps = connection.prepareStatement(sql);){
-            for(Object parameter:updateParameterList){
-                ps.setObject(parameterIndex++,parameter);
+            for(Object parameter:query.updateParameterList){
+                ps.setObject(query.parameterIndex++,parameter);
                 replaceParameter(parameter);
             }
             addMainTableParameters(ps);
@@ -58,20 +53,20 @@ public class SqliteCondition extends AbstractCondition{
 
     @Override
     public long delete() {
-        if(!hasDone){
+        if(!query.hasDone){
             done();
         }
         sqlBuilder.setLength(0);
-        sqlBuilder.append("delete from "+tableName+" ");
-        sqlBuilder.append(whereBuilder.toString().replaceAll("t\\.",""));
+        sqlBuilder.append("delete from "+query.tableName+" ");
+        sqlBuilder.append(query.whereBuilder.toString().replaceAll("t\\.",""));
         sql = sqlBuilder.toString().replaceAll("\\s+"," ");
 
         long effect = -1;
         try (Connection connection = dataSource.getConnection();
              PreparedStatement ps = connection.prepareStatement(sql);){
-            for(int i=0;i<parameterList.size();i++){
-                ps.setObject((i+1),parameterList.get(i));
-                replaceParameter(parameterList.get(i));
+            for(int i=0;i<query.parameterList.size();i++){
+                ps.setObject((i+1),query.parameterList.get(i));
+                replaceParameter(query.parameterList.get(i));
             }
             logger.debug("[Delete]执行SQL:{}",sql);
             effect = ps.executeUpdate();

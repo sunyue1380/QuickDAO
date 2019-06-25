@@ -3,6 +3,9 @@ package cn.schoolwow.quickdao.util;
 public class StringUtil {
     /**驼峰命名转下划线命名*/
     public static String Camel2Underline(String s){
+        if(s==null||s.isEmpty()){
+            return s;
+        }
         StringBuilder sb = new StringBuilder();
         for(int i=0;i<s.length();i++){
             if(i==0&&s.charAt(i)>=65&&s.charAt(i)<=90){

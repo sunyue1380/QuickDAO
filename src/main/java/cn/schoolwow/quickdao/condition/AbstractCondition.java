@@ -1,9 +1,7 @@
 package cn.schoolwow.quickdao.condition;
 
 import cn.schoolwow.quickdao.dao.AbstractDAO;
-import cn.schoolwow.quickdao.domain.Entity;
-import cn.schoolwow.quickdao.domain.PageVo;
-import cn.schoolwow.quickdao.domain.Property;
+import cn.schoolwow.quickdao.domain.*;
 import cn.schoolwow.quickdao.util.ReflectionUtil;
 import cn.schoolwow.quickdao.util.SQLUtil;
 import cn.schoolwow.quickdao.util.StringUtil;
@@ -17,130 +15,59 @@ import javax.sql.DataSource;
 import java.io.*;
 import java.lang.reflect.Field;
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 public class AbstractCondition<T> implements Condition<T>, Serializable {
     Logger logger = LoggerFactory.getLogger(AbstractCondition.class);
-    protected String distinct = "";
-    /**
-     * 列名
-     */
-    protected StringBuilder columnBuilder = new StringBuilder();
-    /**
-     * 聚合函数
-     */
-    protected StringBuilder aggerateColumnBuilder = new StringBuilder();
-    /**
-     * 字段更新
-     */
-    protected StringBuilder setBuilder = new StringBuilder();
-    /**
-     * 查询条件构建
-     */
-    protected StringBuilder whereBuilder = new StringBuilder();
-    /**
-     * 分组
-     */
-    protected StringBuilder groupByBuilder = new StringBuilder("group by ");
-    /**
-     * 分组过滤
-     */
-    protected StringBuilder havingBuilder = new StringBuilder("having ");
-    /**
-     * 排序
-     */
-    protected StringBuilder orderByBuilder = new StringBuilder();
-    /**
-     * 分页
-     */
-    protected String limit = "";
-    /**
-     * 存放查询参数
-     */
-    protected List parameterList = new ArrayList();
-    /**
-     * 参数索引
-     */
-    protected int parameterIndex = 1;
-    /**
-     * 存放更新参数
-     */
-    protected List updateParameterList;
-    /**
-     * 类名
-     */
-    protected Class<T> _class;
-    /**
-     * 数据源
-     */
+    private static String[] patterns = new String[]{"%", "_", "[", "[^", "[!", "]"};
+    /**数据源*/
     protected transient DataSource dataSource;
     /**存放关联的DAO对象*/
     protected transient AbstractDAO abstractDAO;
-
-    /**
-     * 构建sql语句
-     */
+    /**构建sql语句*/
     protected StringBuilder sqlBuilder = new StringBuilder();
-    /**
-     * 用于记录sql日志
-     */
+    /**用于记录sql日志*/
     protected String sql;
-
-    /**
-     * 关联表计数
-     */
+    /**关联表计数*/
     private int joinTableIndex = 1;
-    /**
-     * 关联查询条件
-     */
-    private List<AbstractSubCondition> subConditionList = new ArrayList<>();
-    /**
-     * 表名
-     */
-    protected String tableName = null;
-    /**
-     * 是否已经完成条件构建
-     */
-    protected boolean hasDone = false;
-
     protected PageVo<T> pageVo = null;
 
-    private transient Entity entity;
-    private static String[] patterns = new String[]{"%", "_", "[", "[^", "[!", "]"};
-
+    protected Query query;
+    
     public AbstractCondition(Class<T> _class, DataSource dataSource, AbstractDAO abstractDAO) {
-        this._class = _class;
-        this.entity = ReflectionUtil.entityMap.get(_class.getName());
-        this.tableName = "`" + entity.tableName + "`";
         this.dataSource = dataSource;
         this.abstractDAO = abstractDAO;
+        
+        query = new Query();
+        query.entity = ReflectionUtil.entityMap.get(_class.getName());
+        query._class = _class;
+        query.className = _class.getName();
+        query.tableName = "`" + query.entity.tableName + "`";
     }
 
     @Override
     public Condition distinct() {
-        distinct = "distinct";
+        query.distinct = "distinct";
         return this;
     }
 
     @Override
     public Condition addNullQuery(String field) {
-        whereBuilder.append("(t.`" + StringUtil.Camel2Underline(field) + "` is null) and ");
+        query.whereBuilder.append("(t.`" + StringUtil.Camel2Underline(field) + "` is null) and ");
         return this;
     }
 
     @Override
     public Condition addNotNullQuery(String field) {
         //判断字段是否是String类型
-        whereBuilder.append("(t.`" + StringUtil.Camel2Underline(field) + "` is not null) and ");
+        query.whereBuilder.append("(t.`" + StringUtil.Camel2Underline(field) + "` is not null) and ");
         return this;
     }
 
     @Override
     public Condition addNotEmptyQuery(String field) {
         //判断字段是否是String类型
-        whereBuilder.append("(t.`" + StringUtil.Camel2Underline(field) + "` is not null and t.`" + StringUtil.Camel2Underline(field) + "` != '') and ");
+        query.whereBuilder.append("(t.`" + StringUtil.Camel2Underline(field) + "` is not null and t.`" + StringUtil.Camel2Underline(field) + "` != '') and ");
         return this;
     }
 
@@ -174,15 +101,15 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
 
     @Override
     public Condition addBetweenQuery(String field, Object start, Object end) {
-        whereBuilder.append("(t.`"+StringUtil.Camel2Underline(field)+"` between ? and ? ) and ");
-        parameterList.add(start);
-        parameterList.add(end);
+        query.whereBuilder.append("(t.`"+StringUtil.Camel2Underline(field)+"` between ? and ? ) and ");
+        query.parameterList.add(start);
+        query.parameterList.add(end);
         return this;
     }
 
     @Override
     public Condition addQuery(String query) {
-        whereBuilder.append("(" + query + ") and ");
+        this.query.whereBuilder.append("(" + query + ") and ");
         return this;
     }
 
@@ -202,21 +129,21 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
     @Override
     public Condition addQuery(String field, String operator, Object value) {
         if (value instanceof String) {
-            whereBuilder.append("(t.`" + StringUtil.Camel2Underline(field) + "` " + operator + " ?) and ");
+            query.whereBuilder.append("(t.`" + StringUtil.Camel2Underline(field) + "` " + operator + " ?) and ");
             boolean hasContains = false;
             for (String pattern : patterns) {
                 if (((String) value).contains(pattern)) {
-                    parameterList.add(value);
+                    query.parameterList.add(value);
                     hasContains = true;
                     break;
                 }
             }
             if (!hasContains) {
-                parameterList.add("%" + value + "%");
+                query.parameterList.add("%" + value + "%");
             }
         } else {
-            whereBuilder.append("(t.`" + StringUtil.Camel2Underline(field) + "` " + operator + " ?) and ");
-            parameterList.add(value);
+            query.whereBuilder.append("(t.`" + StringUtil.Camel2Underline(field) + "` " + operator + " ?) and ");
+            query.parameterList.add(value);
         }
         return this;
     }
@@ -225,7 +152,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
     public Condition addJSONObjectQuery(JSONObject queryCondition) {
         //主键查询
         {
-            Property[] properties = entity.properties;
+            Property[] properties = query.entity.properties;
             for (Property property : properties) {
                 if (queryCondition.containsKey(property.name)) {
                     addQuery(property.name, queryCondition.get(property.name));
@@ -275,141 +202,164 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
         }
         //外键关联查询
         {
-            JSONObject joinTableObject = queryCondition.getJSONObject("_joinTable");
-            if(joinTableObject!=null){
-                try {
-                    Class _class = Class.forName(joinTableObject.getString("_class"));
-                    String primaryField = joinTableObject.getString("_primaryField");
-                    String joinTableField = joinTableObject.getString("_joinTableField");
-                    SubCondition subCondition = joinTable(_class,primaryField,joinTableField);
-                    Property[] properties = ReflectionUtil.entityMap.get(_class.getName()).properties;
-                    for (Property property:properties) {
-                        if (joinTableObject.containsKey(property.name)) {
-                            subCondition.addQuery(property.name, joinTableObject.get(property.name));
-                        }
-                        if (joinTableObject.containsKey(property.name + "Start")) {
-                            subCondition.addQuery(property.name, ">=", joinTableObject.get(property.name + "Start"));
-                        }
-                        if (joinTableObject.containsKey(property.name + "End")) {
-                            subCondition.addQuery(property.name, "<=", joinTableObject.get(property.name + "End"));
-                        }
-                        if (joinTableObject.containsKey(property.name + "IN")) {
-                            subCondition.addInQuery(property.name, joinTableObject.getJSONArray(property.name + "IN"));
-                        }
-                        if (joinTableObject.containsKey(property.name + "NOTNULL")) {
-                            subCondition.addNotNullQuery(property.name);
-                        }
-                        if (joinTableObject.containsKey(property.name + "NULL")) {
-                            subCondition.addNullQuery(property.name);
-                        }
-                        if (joinTableObject.containsKey(property.name + "NOTEMPTY")) {
-                            subCondition.addNotEmptyQuery(property.name);
-                        }
-                    }
-                    if(joinTableObject.containsKey("_orderBy")){
-                        if(joinTableObject.get("_orderBy") instanceof String){
-                            subCondition.orderBy(joinTableObject.getString("_orderBy"));
-                        }else if(joinTableObject.get("_orderBy") instanceof JSONArray){
-                            JSONArray array = joinTableObject.getJSONArray("_orderBy");
-                            for(int i=0;i<array.size();i++){
-                                subCondition.orderBy(array.getString(i));
+            JSONArray _joinTables = queryCondition.getJSONArray("_joinTables");
+            if(_joinTables==null||_joinTables.size()==0){
+                return this;
+            }
+            try {
+                Stack<SubCondition> subConditionStack = new Stack<>();
+                Stack<JSONArray> joinTablesStack = new Stack<>();
+                for(int i=0;i<_joinTables.size();i++){
+                    JSONObject _joinTable = _joinTables.getJSONObject(i);
+                    String primaryField = _joinTable.getString("_primaryField");
+                    String joinTableField = _joinTable.getString("_joinTableField");
+                    SubCondition subCondition = joinTable(Class.forName(_joinTable.getString("_class")),primaryField,joinTableField);
+                    addSubConditionQuery(subCondition,_joinTable);
+
+                    if(_joinTable.containsKey("_joinTables")){
+                        subConditionStack.push(subCondition);
+                        joinTablesStack.push(_joinTable.getJSONArray("_joinTables"));
+                        while(!joinTablesStack.isEmpty()){
+                            _joinTables = joinTablesStack.pop();
+                            subCondition = subConditionStack.pop();
+                            addSubConditionQuery(subCondition,_joinTable);
+                            for(int j=0;j<_joinTables.size();j++){
+                                _joinTable = _joinTables.getJSONObject(j);
+                                primaryField = _joinTable.getString("_primaryField");
+                                joinTableField = _joinTable.getString("_joinTableField");
+                                SubCondition _subCondition = subCondition.joinTable(Class.forName(_joinTable.getString("_class")),primaryField,joinTableField);
+                                if(_joinTable.containsKey("_joinTables")){
+                                    subConditionStack.push(_subCondition);
+                                    joinTablesStack.push(_joinTable.getJSONArray("_joinTables"));
+                                }
                             }
                         }
                     }
-                    if(joinTableObject.containsKey("_orderByDesc")){
-                        if(joinTableObject.get("_orderByDesc") instanceof String){
-                            subCondition.orderByDesc(joinTableObject.getString("_orderByDesc"));
-                        }else if(joinTableObject.get("_orderByDesc") instanceof JSONArray){
-                            JSONArray array = joinTableObject.getJSONArray("_orderByDesc");
-                            for(int i=0;i<array.size();i++){
-                                subCondition.orderByDesc(array.getString(i));
-                            }
-                        }
-                    }
-                    subCondition.done();
-                }catch (Exception e){
-                    e.printStackTrace();
-                    logger.warn("[自定义查询异常]异常:{}",e.getMessage());
                 }
+            }catch (Exception e){
+                e.printStackTrace();
             }
         }
         return this;
     }
 
+    /**添加子查询条件*/
+    private void addSubConditionQuery(SubCondition subCondition,JSONObject _joinTable){
+        Property[] properties = ReflectionUtil.entityMap.get(_joinTable.getString("_class")).properties;
+        for (Property property:properties) {
+            if (_joinTable.containsKey(property.name)) {
+                subCondition.addQuery(property.name, _joinTable.get(property.name));
+            }
+            if (_joinTable.containsKey(property.name + "Start")) {
+                subCondition.addQuery(property.name, ">=", _joinTable.get(property.name + "Start"));
+            }
+            if (_joinTable.containsKey(property.name + "End")) {
+                subCondition.addQuery(property.name, "<=", _joinTable.get(property.name + "End"));
+            }
+            if (_joinTable.containsKey(property.name + "IN")) {
+                subCondition.addInQuery(property.name, _joinTable.getJSONArray(property.name + "IN"));
+            }
+            if (_joinTable.containsKey(property.name + "NOTNULL")) {
+                subCondition.addNotNullQuery(property.name);
+            }
+            if (_joinTable.containsKey(property.name + "NULL")) {
+                subCondition.addNullQuery(property.name);
+            }
+            if (_joinTable.containsKey(property.name + "NOTEMPTY")) {
+                subCondition.addNotEmptyQuery(property.name);
+            }
+        }
+        if(_joinTable.containsKey("_orderBy")){
+            if(_joinTable.get("_orderBy") instanceof String){
+                subCondition.orderBy(_joinTable.getString("_orderBy"));
+            }else if(_joinTable.get("_orderBy") instanceof JSONArray){
+                JSONArray array = _joinTable.getJSONArray("_orderBy");
+                for(int j=0;j<array.size();j++){
+                    subCondition.orderBy(array.getString(j));
+                }
+            }
+        }
+        if(_joinTable.containsKey("_orderByDesc")){
+            if(_joinTable.get("_orderByDesc") instanceof String){
+                subCondition.orderByDesc(_joinTable.getString("_orderByDesc"));
+            }else if(_joinTable.get("_orderByDesc") instanceof JSONArray){
+                JSONArray array = _joinTable.getJSONArray("_orderByDesc");
+                for(int j=0;j<array.size();j++){
+                    subCondition.orderByDesc(array.getString(j));
+                }
+            }
+        }
+        subCondition.done();
+    }
+
     @Override
     public Condition addUpdate(String field, Object value) {
-        if (updateParameterList == null) {
-            updateParameterList = new ArrayList();
+        if (query.updateParameterList== null) {
+            query.updateParameterList= new ArrayList();
         }
-        setBuilder.append("t.`" + StringUtil.Camel2Underline(field) + "`=?,");
-        updateParameterList.add(value);
+        query.setBuilder.append("t.`" + StringUtil.Camel2Underline(field) + "`=?,");
+        query.updateParameterList.add(value);
         return this;
     }
 
     @Override
     public Condition addAggerate(String aggerate, String field) {
         field = StringUtil.Camel2Underline(field);
-        aggerateColumnBuilder.append(aggerate + "(t.`" + field + "`) as `" + aggerate + "(" + field + ")`,");
+        query.aggregateColumnBuilder.append(aggerate + "(t.`" + field + "`) as `" + aggerate + "(" + field + ")`,");
         return this;
     }
 
     @Override
     public Condition addAggerate(String aggerate, String field, String alias) {
         field = StringUtil.Camel2Underline(field);
-        aggerateColumnBuilder.append(aggerate + "(t.`" + field + "`) as `" + alias + "`,");
+        query.aggregateColumnBuilder.append(aggerate + "(t.`" + field + "`) as `" + alias + "`,");
         return this;
     }
 
     @Override
     public Condition groupBy(String field) {
-        groupByBuilder.append("t.`" + StringUtil.Camel2Underline(field) + "`,");
+        query.groupByBuilder.append("t.`" + StringUtil.Camel2Underline(field) + "`,");
         return this;
     }
-
-//    @Override
-//    public Condition having(String query) {
-//        havingBuilder.append("("+query+") and ");
-//        return this;
-//    }
 
     @Override
     public <T> SubCondition<T> joinTable(Class<T> _class, String primaryField, String joinTableField) {
         String tableNameAlias = "t" + (joinTableIndex++);
-        String fieldName = getFirstClassFieldInMainClass(this._class,_class);
-        SubCondition<T> subCondition = new AbstractSubCondition<T>(_class, tableNameAlias, primaryField, joinTableField, fieldName, this);
-        subConditionList.add((AbstractSubCondition) subCondition);
+        String fieldName = getFirstClassFieldInMainClass(query.className,_class.getName());
+        AbstractSubCondition<T> subCondition = new AbstractSubCondition<T>(_class, tableNameAlias, primaryField, joinTableField, fieldName, this);
+        query.subQueryList.add(subCondition.subQuery);
         return subCondition;
     }
 
     @Override
     public <T> SubCondition<T> joinTable(Class<T> _class, String primaryField, String joinTableField, String compositField) {
         String tableNameAlias = "t" + (joinTableIndex++);
-        SubCondition<T> subCondition = new AbstractSubCondition<T>(_class, tableNameAlias, primaryField, joinTableField, compositField, this);
-        subConditionList.add((AbstractSubCondition) subCondition);
+        AbstractSubCondition<T> subCondition = new AbstractSubCondition<T>(_class, tableNameAlias, primaryField, joinTableField, compositField, this);
+        query.subQueryList.add(subCondition.subQuery);
         return subCondition;
     }
 
     @Override
     public Condition orderBy(String field) {
-        orderByBuilder.append("t.`" + StringUtil.Camel2Underline(field) + "` asc,");
+        query.orderByBuilder.append("t.`" + StringUtil.Camel2Underline(field) + "` asc,");
         return this;
     }
 
     @Override
     public Condition orderByDesc(String field) {
-        orderByBuilder.append("t.`" + StringUtil.Camel2Underline(field) + "` desc,");
+        query.orderByBuilder.append("t.`" + StringUtil.Camel2Underline(field) + "` desc,");
         return this;
     }
 
     @Override
     public Condition limit(long offset, long limit) {
-        this.limit = "limit " + offset + "," + limit;
+        query.limit = "limit " + offset + "," + limit;
         return this;
     }
 
     @Override
     public Condition page(int pageNum, int pageSize) {
-        this.limit = "limit " + (pageNum - 1) * pageSize + "," + pageSize;
+        query.limit = "limit " + (pageNum - 1) * pageSize + "," + pageSize;
         pageVo = new PageVo<>();
         pageVo.setPageSize(pageSize);
         pageVo.setCurrentPage(pageNum);
@@ -419,47 +369,41 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
     @Override
     public Condition addColumn(String field) {
         field = StringUtil.Camel2Underline(field);
-        columnBuilder.append("t.`" + field + "` as `t_" + field + "`,");
+        query.columnBuilder.append("t.`" + field + "` as `t_" + field + "`,");
         return this;
     }
 
     protected Condition done() {
-        if (columnBuilder.length() > 0) {
-            columnBuilder.deleteCharAt(columnBuilder.length() - 1);
+        if (query.columnBuilder.length() > 0) {
+            query.columnBuilder.deleteCharAt(query.columnBuilder.length() - 1);
         }
-        if (aggerateColumnBuilder.length() > 0) {
-            aggerateColumnBuilder.deleteCharAt(aggerateColumnBuilder.length() - 1);
+        if (query.aggregateColumnBuilder.length() > 0) {
+            query.aggregateColumnBuilder.deleteCharAt(query.aggregateColumnBuilder.length() - 1);
         }
-        if (setBuilder.length() > 0) {
-            setBuilder.deleteCharAt(setBuilder.length() - 1);
-            setBuilder.insert(0, "set ");
+        if (query.setBuilder.length() > 0) {
+            query.setBuilder.deleteCharAt(query.setBuilder.length() - 1);
+            query.setBuilder.insert(0, "set ");
         }
-        if (whereBuilder.length() > 0) {
-            whereBuilder.delete(whereBuilder.length() - 5, whereBuilder.length());
-            whereBuilder.insert(0, "where ");
+        if (query.whereBuilder.length() > 0) {
+            query.whereBuilder.delete(query.whereBuilder.length() - 5, query.whereBuilder.length());
+            query.whereBuilder.insert(0, "where ");
         }
-        if ("group by ".equals(groupByBuilder.toString())) {
-            groupByBuilder.setLength(0);
+        if ("group by ".equals(query.groupByBuilder.toString())) {
+            query.groupByBuilder.setLength(0);
         } else {
-            groupByBuilder.deleteCharAt(groupByBuilder.length() - 1);
+            query.groupByBuilder.deleteCharAt(query.groupByBuilder.length() - 1);
         }
-        if ("having ".equals(havingBuilder.toString())) {
-            havingBuilder.setLength(0);
-        } else {
-            havingBuilder.delete(havingBuilder.length() - 5, havingBuilder.length());
-        }
-        if (orderByBuilder.length() > 0) {
-            orderByBuilder.deleteCharAt(orderByBuilder.length() - 1);
-            orderByBuilder.insert(0, "order by ");
+        if (query.orderByBuilder.length() > 0) {
+            query.orderByBuilder.deleteCharAt(query.orderByBuilder.length() - 1);
+            query.orderByBuilder.insert(0, "order by ");
         }
         //处理所有子查询的where语句
-        for (AbstractSubCondition abstractSubCondition : subConditionList) {
-            if (abstractSubCondition.whereBuilder.length() > 0) {
-                abstractSubCondition.whereBuilder.delete(abstractSubCondition.whereBuilder.length() - 5, abstractSubCondition.whereBuilder.length());
+        for (SubQuery subQuery: query.subQueryList) {
+            if (subQuery.whereBuilder.length() > 0) {
+                subQuery.whereBuilder.delete(subQuery.whereBuilder.length() - 5, subQuery.whereBuilder.length());
             }
         }
-
-        hasDone = true;
+        query.hasDone = true;
         return this;
     }
 
@@ -467,7 +411,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
     public long count() {
         assureDone();
         sqlBuilder.setLength(0);
-        sqlBuilder.append("select count(1) from " + tableName + " as t ");
+        sqlBuilder.append("select count(1) from " + query.tableName + " as t ");
         addJoinTableStatement();
         addWhereStatement();
         String sqlBack = sql;
@@ -496,16 +440,11 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
     @Override
     public long update() {
         assureDone();
-        if (setBuilder.length() == 0) {
-            throw new IllegalArgumentException("请先调用addUpdate()函数!");
-        }
-        if (updateParameterList == null || updateParameterList.size() == 0) {
-            throw new IllegalArgumentException("请先调用addUpdate()函数!");
-        }
+        assureUpdate();
         sqlBuilder.setLength(0);
-        sqlBuilder.append("update " + tableName + " as t ");
+        sqlBuilder.append("update " + query.tableName + " as t ");
         addJoinTableStatement();
-        sqlBuilder.append(setBuilder.toString());
+        sqlBuilder.append(query.setBuilder.toString());
         addWhereStatement();
         sql = sqlBuilder.toString().replaceAll("\\s+", " ");
 
@@ -513,8 +452,8 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
         try {
             Connection connection = abstractDAO.getConnection();
             PreparedStatement ps = connection.prepareStatement(sql);
-            for (Object parameter : updateParameterList) {
-                ps.setObject(parameterIndex++, parameter);
+            for (Object parameter : query.updateParameterList) {
+                ps.setObject(query.parameterIndex++, parameter);
                 replaceParameter(parameter);
             }
             addMainTableParameters(ps);
@@ -535,7 +474,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
     public long delete() {
         assureDone();
         sqlBuilder.setLength(0);
-        sqlBuilder.append("delete t from " + tableName + " as t ");
+        sqlBuilder.append("delete t from " + query.tableName + " as t ");
         addJoinTableStatement();
         addWhereStatement();
         sql = sqlBuilder.toString().replaceAll("\\s+", " ");
@@ -570,17 +509,17 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
 
     @Override
     public List<T> getList() {
-        return getArray().toJavaList(_class);
+        return getArray().toJavaList(query._class);
     }
 
     @Override
     public JSONArray getArray() {
         assureDone();
         sqlBuilder.setLength(0);
-        sqlBuilder.append("select " + distinct + " " + SQLUtil.columns(_class, "t") + " from " + tableName + " as t ");
+        sqlBuilder.append("select " + query.distinct + " " + SQLUtil.columns(query.className, "t") + " from " + query.tableName + " as t ");
         addJoinTableStatement();
         addWhereStatement();
-        sqlBuilder.append(" " + orderByBuilder.toString() + " " + limit);
+        sqlBuilder.append(" " + query.orderByBuilder.toString() + " " + query.limit);
         sql = sqlBuilder.toString().replaceAll("\\s+", " ");
 
         try (Connection connection = dataSource.getConnection();
@@ -603,10 +542,10 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
     public <E> List<E> getValueList(Class<E> _class, String column) {
         assureDone();
         sqlBuilder.setLength(0);
-        sqlBuilder.append("select " + distinct + " " + "t.`" + StringUtil.Camel2Underline(column) + "` from " + tableName + " as t ");
+        sqlBuilder.append("select " + query.distinct + " " + "t.`" + StringUtil.Camel2Underline(column) + "` from " + query.tableName + " as t ");
         addJoinTableStatement();
         addWhereStatement();
-        sqlBuilder.append(" " + orderByBuilder.toString() + " " + limit);
+        sqlBuilder.append(" " + query.orderByBuilder.toString() + " " + query.limit);
         sql = sqlBuilder.toString().replaceAll("\\s+", " ");
 
         try (Connection connection = dataSource.getConnection();
@@ -629,14 +568,14 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
     public JSONArray getAggerateList() {
         assureDone();
         sqlBuilder.setLength(0);
-        sqlBuilder.append("select " + distinct + " ");
-        if (columnBuilder.toString().length() > 0) {
-            sqlBuilder.append(columnBuilder.toString() + ",");
+        sqlBuilder.append("select " + query.distinct + " ");
+        if (query.columnBuilder.toString().length() > 0) {
+            sqlBuilder.append(query.columnBuilder.toString() + ",");
         }
-        sqlBuilder.append(aggerateColumnBuilder.toString() + " from " + tableName + " as t ");
+        sqlBuilder.append(query.aggregateColumnBuilder.toString() + " from " + query.tableName + " as t ");
         addJoinTableStatement();
         addWhereStatement();
-        sqlBuilder.append(" "+groupByBuilder.toString() + " " + havingBuilder.toString() + " " + orderByBuilder.toString() + " " + limit);
+        sqlBuilder.append(" "+query.groupByBuilder.toString() + " " + query.orderByBuilder.toString() + " " + query.limit);
         sql = sqlBuilder.toString().replaceAll("\\s+", " ");
 
         try (Connection connection = dataSource.getConnection();
@@ -667,15 +606,15 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
 
     @Override
     public List<T> getPartList() {
-        if (columnBuilder.length() == 0) {
+        if (query.columnBuilder.length() == 0) {
             throw new IllegalArgumentException("请先调用addColumn()函数!");
         }
         assureDone();
         sqlBuilder.setLength(0);
-        sqlBuilder.append("select " + distinct + " " + columnBuilder.toString() + " from " + tableName + " as t ");
+        sqlBuilder.append("select " + query.distinct + " " + query.columnBuilder.toString() + " from " + query.tableName + " as t ");
         addJoinTableStatement();
         addWhereStatement();
-        sqlBuilder.append(" " + orderByBuilder.toString() + " " + limit);
+        sqlBuilder.append(" " + query.orderByBuilder.toString() + " " + query.limit);
         sql = sqlBuilder.toString().replaceAll("\\s+", " ");
 
         try (Connection connection = dataSource.getConnection();
@@ -686,7 +625,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
             logger.debug("[getPartList]执行SQL:{}", sql);
             ResultSet resultSet = ps.executeQuery();
             JSONArray array = ReflectionUtil.mappingResultSetToJSONArray(resultSet, "t", count);
-            List<T> instanceList = array.toJavaList(_class);
+            List<T> instanceList = array.toJavaList(query._class);
             ps.close();
             return instanceList;
         } catch (Exception e) {
@@ -719,21 +658,21 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
     @Override
     public List<T> getCompositList() {
         JSONArray array = getCompositArray();
-        return array.toJavaList(_class);
+        return array.toJavaList(query._class);
     }
 
     @Override
     public JSONArray getCompositArray() {
         assureDone();
         sqlBuilder.setLength(0);
-        sqlBuilder.append("select " + distinct + " " + SQLUtil.columns(_class, "t"));
-        for (AbstractSubCondition subCondition : subConditionList) {
-            sqlBuilder.append("," + SQLUtil.columns(subCondition._class, subCondition.tableAliasName));
+        sqlBuilder.append("select " + query.distinct + " " + SQLUtil.columns(query.className, "t"));
+        for (SubQuery subQuery : query.subQueryList) {
+            sqlBuilder.append("," + SQLUtil.columns(subQuery.className, subQuery.tableAliasName));
         }
-        sqlBuilder.append(" from " + tableName + " as t ");
+        sqlBuilder.append(" from " + query.tableName + " as t ");
         addJoinTableStatement();
         addWhereStatement();
-        sqlBuilder.append(" " + orderByBuilder.toString() + " " + limit);
+        sqlBuilder.append(" " + query.orderByBuilder.toString() + " " + query.limit);
         sql = sqlBuilder.toString().replaceAll("\\s+", " ");
 
         try (Connection connection = dataSource.getConnection();
@@ -746,26 +685,26 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
             JSONArray array = new JSONArray(count);
 
             while (resultSet.next()) {
-                JSONObject o = getSubObject(_class,"t",resultSet);
-                for (AbstractCondition.AbstractSubCondition subCondition : subConditionList) {
-                    if (ValidateUtil.isEmpty(subCondition.compositField)) {
+                JSONObject o = getSubObject(query.className,"t",resultSet);
+                for (SubQuery subQuery: query.subQueryList) {
+                    if (ValidateUtil.isEmpty(subQuery.compositField)) {
                         continue;
                     }
-                    JSONObject subObject = getSubObject(subCondition._class,subCondition.tableAliasName,resultSet);
-                    AbstractSubCondition parentSubCondition = (AbstractSubCondition) subCondition.parentSubCondition;
-                    if(parentSubCondition==null){
-                        o.put(subCondition.compositField, subObject);
+                    JSONObject subObject = getSubObject(subQuery.className,subQuery.tableAliasName,resultSet);
+                    SubQuery parentSubQuery = subQuery.parentSubQuery;
+                    if(parentSubQuery==null){
+                        o.put(subQuery.compositField, subObject);
                     }else{
                         List<String> fieldNames = new ArrayList<>();
-                        while(parentSubCondition!=null){
-                            fieldNames.add(parentSubCondition.compositField);
-                            parentSubCondition = (AbstractSubCondition)parentSubCondition.parentSubCondition;
+                        while(parentSubQuery!=null){
+                            fieldNames.add(parentSubQuery.compositField);
+                            parentSubQuery = parentSubQuery.parentSubQuery;
                         }
                         JSONObject oo = o;
                         for(int i=fieldNames.size()-1;i>=0;i--){
                             oo = oo.getJSONObject(fieldNames.get(i));
                         }
-                        oo.put(subCondition.compositField,subObject);
+                        oo.put(subQuery.compositField,subObject);
                     }
                 }
                 array.add(o);
@@ -790,7 +729,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
             AbstractCondition abstractCondition = (AbstractCondition) ois.readObject();
             abstractCondition.dataSource = this.dataSource;
             abstractCondition.abstractDAO = this.abstractDAO;
-            abstractCondition.entity = this.entity;
+            abstractCondition.query.entity = this.query.entity;
             return abstractCondition;
         } catch (Exception e) {
             e.printStackTrace();
@@ -800,7 +739,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
 
     @Override
     public String toString() {
-        return "[Condition]类[" + _class.getName() + "],where子句:[" + whereBuilder.toString() + "],参数列表:[" + parameterList + "],排序:[" + orderByBuilder.toString() + "],分页:[" + limit + "]";
+        return "[Condition]类[" + query.className + "],where子句:[" + query.whereBuilder.toString() + "],参数列表:[" + query.parameterList + "],排序:[" + query.orderByBuilder.toString() + "],分页:[" + query.limit + "]";
     }
 
     private PageVo<T> getPageVo() {
@@ -814,10 +753,10 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
     }
 
     protected void addMainTableParameters(PreparedStatement ps) throws SQLException {
-        for (Object parameter : parameterList) {
-            ps.setObject(parameterIndex, parameter);
+        for (Object parameter : query.parameterList) {
+            ps.setObject(query.parameterIndex, parameter);
             replaceParameter(parameter);
-            parameterIndex++;
+            query.parameterIndex++;
         }
     }
 
@@ -825,15 +764,14 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
      * 添加外键关联查询条件
      */
     protected void addJoinTableStatement() {
-        for (AbstractSubCondition abstractSubCondition : subConditionList) {
-            AbstractSubCondition parentSubCondition = (AbstractSubCondition) abstractSubCondition.parentSubCondition;
-            Entity entity = ReflectionUtil.entityMap.get(abstractSubCondition._class.getName());
-            if(parentSubCondition==null){
+        for (SubQuery subQuery: query.subQueryList) {
+            Entity entity = ReflectionUtil.entityMap.get(subQuery.className);
+            if(subQuery.parentSubQuery==null){
                 //如果parentSubCondition为空,则为主表关联子表
-                sqlBuilder.append(abstractSubCondition.join+" `" + entity.tableName + "` as " + abstractSubCondition.tableAliasName + " on t." + abstractSubCondition.primaryField + " = " + abstractSubCondition.tableAliasName + "." + abstractSubCondition.joinTableField + " ");
+                sqlBuilder.append(subQuery.join+" `" + entity.tableName + "` as " + subQuery.tableAliasName + " on t." + subQuery.primaryField + " = " + subQuery.tableAliasName + "." + subQuery.joinTableField + " ");
             }else{
                 //如果parentSubCondition不为空,则为子表关联子表
-                sqlBuilder.append(abstractSubCondition.join+" `" + entity.tableName + "` as " + abstractSubCondition.tableAliasName + " on "+abstractSubCondition.tableAliasName+"." + abstractSubCondition.joinTableField + " = " + parentSubCondition.tableAliasName + "." + abstractSubCondition.primaryField + " ");
+                sqlBuilder.append(subQuery.join+" `" + entity.tableName + "` as " + subQuery.tableAliasName + " on "+subQuery.tableAliasName+"." + subQuery.joinTableField + " = " + subQuery.parentSubQuery.tableAliasName + "." + subQuery.primaryField + " ");
             }
         }
     }
@@ -843,10 +781,10 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
      */
     protected void addWhereStatement() {
         //添加查询条件
-        sqlBuilder.append(" "+whereBuilder.toString());
-        for (AbstractSubCondition abstractSubCondition : subConditionList) {
-            if (abstractSubCondition.whereBuilder.length() > 0) {
-                sqlBuilder.append(" and " + abstractSubCondition.whereBuilder.toString() + " ");
+        sqlBuilder.append(" "+query.whereBuilder.toString());
+        for (SubQuery subQuery: query.subQueryList) {
+            if (subQuery.whereBuilder.length() > 0) {
+                sqlBuilder.append(" and " + subQuery.whereBuilder.toString() + " ");
             }
         }
     }
@@ -855,11 +793,11 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
      * 添加外键查询参数
      */
     protected void addJoinTableParameters(PreparedStatement ps) throws SQLException {
-        for (AbstractSubCondition abstractSubCondition : subConditionList) {
-            for (Object parameter : abstractSubCondition.parameterList) {
-                ps.setObject(parameterIndex, parameter);
+        for (SubQuery subQuery: query.subQueryList) {
+            for (Object parameter : subQuery.parameterList) {
+                ps.setObject(query.parameterIndex, parameter);
                 replaceParameter(parameter);
-                parameterIndex++;
+                query.parameterIndex++;
             }
         }
     }
@@ -894,15 +832,25 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
      * 确保执行了done方法
      */
     protected void assureDone() {
-        if (!hasDone) {
+        if (!query.hasDone) {
             done();
         }
-        parameterIndex = 1;
+        query.parameterIndex = 1;
+    }
+
+    /**确保执行addUpdate方法*/
+    protected void assureUpdate(){
+        if (query.setBuilder.length() == 0) {
+            throw new IllegalArgumentException("请先调用addUpdate()函数!");
+        }
+        if (query.updateParameterList == null || query.updateParameterList.size() == 0) {
+            throw new IllegalArgumentException("请先调用addUpdate()函数!");
+        }
     }
 
     /**找到mainClass中第一个类型为_class的字段名称*/
-    private String getFirstClassFieldInMainClass(Class mainClass,Class _class){
-        Entity entity = ReflectionUtil.entityMap.get(mainClass.getName());
+    private String getFirstClassFieldInMainClass(String mainClassName,String className){
+        Entity entity = ReflectionUtil.entityMap.get(mainClassName);
         Field[] fields = entity.compositFields;
         if(fields==null||fields.length==0){
             return null;
@@ -910,7 +858,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
         int count = 0;
         String fieldName = null;
         for(Field field:fields){
-            if(field.getType().getName().equalsIgnoreCase(_class.getName())){
+            if(field.getType().getName().equalsIgnoreCase(className)){
                 fieldName = field.getName();
                 count++;
             }
@@ -918,14 +866,14 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
         if(count==1){
             return fieldName;
         }else{
-            throw new IllegalArgumentException("类[" + mainClass.getName() + "]存在[" + fields.length + "]个类型为[" + _class.getName() + "]的成员变量!");
+            throw new IllegalArgumentException("类[" + mainClassName + "]存在[" + fields.length + "]个类型为[" + className + "]的成员变量!");
         }
     }
 
     /**获取子对象属性值*/
-    private JSONObject getSubObject(Class _class,String tableAliasName,ResultSet resultSet) throws SQLException {
+    private JSONObject getSubObject(String clssName,String tableAliasName,ResultSet resultSet) throws SQLException {
         JSONObject subObject = new JSONObject();
-        Property[] properties = ReflectionUtil.entityMap.get(_class.getName()).properties;
+        Property[] properties = ReflectionUtil.entityMap.get(clssName).properties;
         for(Property property:properties){
             setValue(tableAliasName,property.field,subObject,resultSet);
         }
@@ -963,78 +911,71 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
                 values[i] = values[i].toString();
             }
         }
-        parameterList.addAll(Arrays.asList(values));
-        whereBuilder.append("(" + tableAliasName + "." + StringUtil.Camel2Underline(field) + " " + in + " (");
+        query.parameterList.addAll(Arrays.asList(values));
+        query.whereBuilder.append("(" + tableAliasName + "." + StringUtil.Camel2Underline(field) + " " + in + " (");
         for (int i = 0; i < values.length; i++) {
-            whereBuilder.append("?,");
+            query.whereBuilder.append("?,");
         }
-        whereBuilder.deleteCharAt(whereBuilder.length() - 1);
-        whereBuilder.append(") ) and ");
+        query.whereBuilder.deleteCharAt(query.whereBuilder.length() - 1);
+        query.whereBuilder.append(") ) and ");
     }
 
-    class AbstractSubCondition<T> implements SubCondition<T>,Serializable {
-        protected Class<T> _class;
-        protected String tableAliasName;
-        protected String primaryField;
-        protected String joinTableField;
-        protected String compositField;
-        protected StringBuilder whereBuilder = new StringBuilder();
-        protected List parameterList = new ArrayList();
-        protected transient Condition condition;
-        protected String join = "join";
-        protected SubCondition parentSubCondition;
+    private class AbstractSubCondition<T> implements SubCondition<T>,Serializable {
+        protected SubQuery subQuery;
 
         public AbstractSubCondition(Class<T> _class, String tableAliasName, String primaryField, String joinTableField, String compositField, Condition condition) {
-            this._class = _class;
-            this.tableAliasName = tableAliasName;
-            this.primaryField = StringUtil.Camel2Underline(primaryField);
-            this.joinTableField = StringUtil.Camel2Underline(joinTableField);
-            this.compositField = StringUtil.Camel2Underline(compositField);
-            this.condition = condition;
+            subQuery = new SubQuery();
+            subQuery._class = _class;
+            subQuery.className = _class.getName();
+            subQuery.tableAliasName = tableAliasName;
+            subQuery.primaryField = StringUtil.Camel2Underline(primaryField);
+            subQuery.joinTableField = StringUtil.Camel2Underline(joinTableField);
+            subQuery.compositField = StringUtil.Camel2Underline(compositField);
+            subQuery.condition = condition;
         }
 
         @Override
         public SubCondition leftJoin() {
-            join = "left outer join";
+            subQuery.join = "left outer join";
             return this;
         }
 
         @Override
         public SubCondition rightJoin() {
-            join = "right outer join";
+            subQuery.join = "right outer join";
             return this;
         }
 
         @Override
         public <T> SubCondition<T> joinTable(Class<T> _class, String primaryField, String joinTableField) {
-            String fieldName = getFirstClassFieldInMainClass(this._class,_class);
-            AbstractSubCondition abstractSubCondition = (AbstractSubCondition) condition.joinTable(_class,primaryField,joinTableField,fieldName);
-            abstractSubCondition.parentSubCondition = this;
+            String fieldName = getFirstClassFieldInMainClass(subQuery.className,_class.getName());
+            AbstractSubCondition abstractSubCondition = (AbstractSubCondition)subQuery.condition.joinTable(_class,primaryField,joinTableField,fieldName);
+            abstractSubCondition.subQuery.parentSubQuery = this.subQuery;
             return abstractSubCondition;
         }
 
         @Override
         public <T> SubCondition<T> joinTable(Class<T> _class, String primaryField, String joinTableField, String compositField) {
-            AbstractSubCondition abstractSubCondition = (AbstractSubCondition) condition.joinTable(_class,primaryField,joinTableField,compositField);
-            abstractSubCondition.parentSubCondition = this;
+            AbstractSubCondition abstractSubCondition = (AbstractSubCondition)subQuery.condition.joinTable(_class,primaryField,joinTableField,compositField);
+            abstractSubCondition.subQuery.parentSubQuery = this.subQuery;
             return abstractSubCondition;
         }
 
         @Override
         public SubCondition addNullQuery(String field) {
-            whereBuilder.append("(" + tableAliasName + ".`" + StringUtil.Camel2Underline(field) + "` is null) and ");
+            subQuery.whereBuilder.append("(" + subQuery.tableAliasName + ".`" + StringUtil.Camel2Underline(field) + "` is null) and ");
             return this;
         }
 
         @Override
         public SubCondition addNotNullQuery(String field) {
-            whereBuilder.append("(" + tableAliasName + ".`" + StringUtil.Camel2Underline(field) + "` is not null) and ");
+            subQuery.whereBuilder.append("(" + subQuery.tableAliasName + ".`" + StringUtil.Camel2Underline(field) + "` is not null) and ");
             return this;
         }
 
         @Override
         public SubCondition addNotEmptyQuery(String field) {
-            whereBuilder.append("(" + tableAliasName + ".`" + StringUtil.Camel2Underline(field) + "` is not null and " + tableAliasName + ".`" + StringUtil.Camel2Underline(field) + "` != '') and ");
+            subQuery.whereBuilder.append("(" + subQuery.tableAliasName + ".`" + StringUtil.Camel2Underline(field) + "` is not null and " + subQuery.tableAliasName + ".`" + StringUtil.Camel2Underline(field) + "` != '') and ");
             return this;
         }
 
@@ -1043,13 +984,13 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
             if (values == null || values.length == 0) {
                 return this;
             }
-            addINQuery(tableAliasName, field, values, "in");
+            addINQuery(subQuery.tableAliasName, field, values, "in");
             return this;
         }
 
         @Override
         public SubCondition addInQuery(String field, List values) {
-            return addInQuery(field, values.toArray(new Object[values.size()]));
+            return addInQuery(field, values.toArray(new Object[0]));
         }
 
         @Override
@@ -1057,18 +998,18 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
             if (values == null || values.length == 0) {
                 return this;
             }
-            addINQuery(tableAliasName, field, values, "not in");
+            addINQuery(subQuery.tableAliasName, field, values, "not in");
             return this;
         }
 
         @Override
         public SubCondition addNotInQuery(String field, List values) {
-            return addNotInQuery(field, values.toArray(new Object[values.size()]));
+            return addNotInQuery(field, values.toArray(new Object[0]));
         }
 
         @Override
         public SubCondition addQuery(String query) {
-            whereBuilder.append("(" + query + ") and ");
+            subQuery.whereBuilder.append("(" + query + ") and ");
             return this;
         }
 
@@ -1088,35 +1029,35 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
         @Override
         public SubCondition addQuery(String property, String operator, Object value) {
             if (value instanceof String) {
-                whereBuilder.append("(" + tableAliasName + ".`" + StringUtil.Camel2Underline(property) + "` " + operator + " ?) and ");
+                subQuery.whereBuilder.append("(" + subQuery.tableAliasName + ".`" + StringUtil.Camel2Underline(property) + "` " + operator + " ?) and ");
                 boolean hasContains = false;
                 for (String pattern : patterns) {
                     if (((String) value).contains(pattern)) {
-                        parameterList.add(value);
+                        subQuery.parameterList.add(value);
                         hasContains = true;
                         break;
                     }
                 }
                 if (!hasContains) {
-                    parameterList.add("%" + value + "%");
+                    subQuery.parameterList.add("%" + value + "%");
 
                 }
             } else {
-                whereBuilder.append("(" + tableAliasName + ".`" + StringUtil.Camel2Underline(property) + "` " + operator + " ?) and ");
-                parameterList.add(value);
+                subQuery.whereBuilder.append("(" + subQuery.tableAliasName + ".`" + StringUtil.Camel2Underline(property) + "` " + operator + " ?) and ");
+                subQuery.parameterList.add(value);
             }
             return this;
         }
 
         @Override
         public SubCondition orderBy(String field) {
-            orderByBuilder.append(tableAliasName + ".`" + StringUtil.Camel2Underline(field) + "` asc,");
+            query.orderByBuilder.append(subQuery.tableAliasName + ".`" + StringUtil.Camel2Underline(field) + "` asc,");
             return this;
         }
 
         @Override
         public SubCondition orderByDesc(String field) {
-            orderByBuilder.append(tableAliasName + ".`" + StringUtil.Camel2Underline(field) + "` desc,");
+            query.orderByBuilder.append(subQuery.tableAliasName + ".`" + StringUtil.Camel2Underline(field) + "` desc,");
             return this;
         }
 
@@ -1127,7 +1068,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
 
         @Override
         public Condition done() {
-            return this.condition;
+            return subQuery.condition;
         }
 
         public SubCondition clone() {
@@ -1140,7 +1081,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
                 ByteArrayInputStream bis = new ByteArrayInputStream(bos.toByteArray());
                 ObjectInputStream ois = new ObjectInputStream(bis);
                 AbstractSubCondition subCondition = (AbstractSubCondition) ois.readObject();
-                subCondition.condition = this.condition;
+                subCondition.subQuery.condition = this.subQuery.condition;
                 return subCondition;
             } catch (IOException e) {
                 e.printStackTrace();
