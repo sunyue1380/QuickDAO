@@ -1,7 +1,6 @@
 package cn.schoolwow.quickdao.dao;
 
 import javax.sql.DataSource;
-import java.util.List;
 
 public class H2DAO extends MySQLDAO{
     public H2DAO(DataSource dataSource) {

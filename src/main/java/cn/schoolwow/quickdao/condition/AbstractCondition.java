@@ -15,7 +15,10 @@ import javax.sql.DataSource;
 import java.io.*;
 import java.lang.reflect.Field;
 import java.sql.*;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Stack;
 
 public class AbstractCondition<T> implements Condition<T>, Serializable {
     Logger logger = LoggerFactory.getLogger(AbstractCondition.class);
@@ -529,7 +532,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
             int count = (int) count();
             logger.debug("[getArray]执行SQL:{}", sql);
             ResultSet resultSet = ps.executeQuery();
-            JSONArray array = ReflectionUtil.mappingResultSetToJSONArray(resultSet, "t", count);
+            JSONArray array = ReflectionUtil.mappingResultSetToJSONArray(resultSet,  count);
             ps.close();
             return array;
         } catch (SQLException e) {
@@ -624,7 +627,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
             int count = (int) count();
             logger.debug("[getPartList]执行SQL:{}", sql);
             ResultSet resultSet = ps.executeQuery();
-            JSONArray array = ReflectionUtil.mappingResultSetToJSONArray(resultSet, "t", count);
+            JSONArray array = ReflectionUtil.mappingResultSetToJSONArray(resultSet, count);
             List<T> instanceList = array.toJavaList(query._class);
             ps.close();
             return instanceList;
@@ -951,6 +954,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
             String fieldName = getFirstClassFieldInMainClass(subQuery.className,_class.getName());
             AbstractSubCondition abstractSubCondition = (AbstractSubCondition)subQuery.condition.joinTable(_class,primaryField,joinTableField,fieldName);
             abstractSubCondition.subQuery.parentSubQuery = this.subQuery;
+            abstractSubCondition.subQuery.parentSubCondition = this;
             return abstractSubCondition;
         }
 
@@ -958,6 +962,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
         public <T> SubCondition<T> joinTable(Class<T> _class, String primaryField, String joinTableField, String compositField) {
             AbstractSubCondition abstractSubCondition = (AbstractSubCondition)subQuery.condition.joinTable(_class,primaryField,joinTableField,compositField);
             abstractSubCondition.subQuery.parentSubQuery = this.subQuery;
+            abstractSubCondition.subQuery.parentSubCondition = this;
             return abstractSubCondition;
         }
 
@@ -1063,7 +1068,11 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
 
         @Override
         public SubCondition doneSubCondition() {
-            return this;
+            if(subQuery.parentSubCondition==null){
+                return this;
+            }else{
+                return subQuery.parentSubCondition;
+            }
         }
 
         @Override

@@ -138,7 +138,7 @@ public abstract class AbstractDAO implements DAO {
                 count = (int) query(_class).addQuery(property,value).count();
             }
             ResultSet resultSet = ps.executeQuery();
-            List<T> instanceList = ReflectionUtil.mappingResultSetToJSONArray(resultSet,"t",count).toJavaList(_class);
+            List<T> instanceList = ReflectionUtil.mappingResultSetToJSONArray(resultSet,count).toJavaList(_class);
             ps.close();
             connection.close();
             return instanceList;

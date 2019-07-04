@@ -3,17 +3,18 @@ package cn.schoolwow.quickdao;
 import cn.schoolwow.quickdao.dao.DAO;
 import cn.schoolwow.quickdao.domain.Entity;
 import cn.schoolwow.quickdao.util.ReflectionUtil;
-import cn.schoolwow.quickdao.util.SQLUtil;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import org.apache.commons.dbcp.BasicDataSource;
-import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 import javax.sql.DataSource;
 import java.io.File;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+import java.util.Scanner;
 
 public class QuickDAOTest {
     protected DAO dao;

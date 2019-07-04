@@ -1,6 +1,7 @@
 package cn.schoolwow.quickdao.domain;
 
 import cn.schoolwow.quickdao.condition.Condition;
+import cn.schoolwow.quickdao.condition.SubCondition;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -28,6 +29,8 @@ public class SubQuery implements Serializable {
     public List parameterList = new ArrayList();
     /**上级子查询*/
     public SubQuery parentSubQuery;
+    /**上级子查询*/
+    public SubCondition parentSubCondition;
     /**主表*/
     public transient Condition condition;
 }
