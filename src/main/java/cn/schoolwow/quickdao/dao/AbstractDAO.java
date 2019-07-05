@@ -584,7 +584,7 @@ public abstract class AbstractDAO implements DAO {
                 createTableBuilder.append(" primary key " + getSyntax(Syntax.AutoIncrement));
             }else{
                 if(property.defaultValue!=null){
-                    createTableBuilder.append(" default " + property.defaultValue);
+                    createTableBuilder.append(" default '" + property.defaultValue+"'");
                 }
                 if(property.notNull){
                     createTableBuilder.append(" not null ");

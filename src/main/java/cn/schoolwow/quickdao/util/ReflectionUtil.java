@@ -28,7 +28,6 @@ public class ReflectionUtil {
     private static Logger logger = LoggerFactory.getLogger(ReflectionUtil.class);
     /**记录实体类信息*/
     public static Map<String, Entity> entityMap = new HashMap<>();
-    private static String placeHolder = "\\*\\* NOT SPECIFIED \\*\\*";
 
     /**对象是否存在id*/
     public static boolean hasId(Object instance) throws IllegalAccessException {
@@ -62,12 +61,12 @@ public class ReflectionUtil {
     public static String setValueWithInsertIgnore(PreparedStatement ps,Object instance,String sql) throws SQLException, IllegalAccessException {
         int parameterIndex = 1;
         Property[] properties = ReflectionUtil.entityMap.get(instance.getClass().getName()).properties;
-        sql = sql.replace("?",placeHolder);
+        sql = sql.replace("?","** NOT SPECIFIED **");
         for(Property property:properties){
             if(property.id){
                 continue;
             }
-            sql = sql.replaceFirst(placeHolder,setParameter(instance, ps, parameterIndex, property.field));
+            sql = sql.replaceFirst("\\*\\* NOT SPECIFIED \\*\\*",setParameter(instance, ps, parameterIndex, property.field));
             parameterIndex++;
         }
         return sql;
@@ -80,17 +79,17 @@ public class ReflectionUtil {
         int parameterIndex = 1;
         Property[] properties = ReflectionUtil.entityMap.get(instance.getClass().getName()).properties;
         Property id = null;
-        sql = sql.replace("?",placeHolder);
+        sql = sql.replace("?","** NOT SPECIFIED **");
         for(Property property:properties){
             if(property.id){
                 id = property;
                 continue;
             }
-            sql = sql.replaceFirst(placeHolder,setParameter(instance, ps, parameterIndex, property.field));
+            sql = sql.replaceFirst("\\*\\* NOT SPECIFIED \\*\\*",setParameter(instance, ps, parameterIndex, property.field));
             parameterIndex++;
         }
         //再设置id属性
-        sql.replaceFirst(placeHolder,setParameter(instance,ps,parameterIndex,id.field));
+        sql.replaceFirst("\\*\\* NOT SPECIFIED \\*\\*",setParameter(instance,ps,parameterIndex,id.field));
         return sql;
     }
 
@@ -100,19 +99,19 @@ public class ReflectionUtil {
     public static String setValueWithUpdateByUniqueKey(PreparedStatement ps,Object instance,String sql) throws SQLException, IllegalAccessException {
         int parameterIndex = 1;
         Property[] properties = ReflectionUtil.entityMap.get(instance.getClass().getName()).properties;
-        sql = sql.replace("?",placeHolder);
+        sql = sql.replace("?","** NOT SPECIFIED **");
         for(Property property:properties){
             //先设置非id和Unique字段
             if(property.id||property.unique){
                 continue;
             }
-            sql = sql.replaceFirst(placeHolder,setParameter(instance, ps, parameterIndex, property.field));
+            sql = sql.replaceFirst("\\*\\* NOT SPECIFIED \\*\\*",setParameter(instance, ps, parameterIndex, property.field));
             parameterIndex++;
         }
         for(Property property:properties){
             //再设置Unique字段查询条件
             if(property.unique){
-                sql = sql.replaceFirst(placeHolder,setParameter(instance, ps, parameterIndex, property.field));
+                sql = sql.replaceFirst("\\*\\* NOT SPECIFIED \\*\\*",setParameter(instance, ps, parameterIndex, property.field));
                 parameterIndex++;
             }
         }

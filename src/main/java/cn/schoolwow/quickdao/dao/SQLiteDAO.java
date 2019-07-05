@@ -50,7 +50,7 @@ public class SQLiteDAO extends AbstractDAO{
                 createTableBuilder.append(" primary key " + getSyntax(Syntax.AutoIncrement));
             }else{
                 if(null!=property.defaultValue){
-                    createTableBuilder.append(" default " + property.defaultValue);
+                    createTableBuilder.append(" default '" + property.defaultValue+"'");
                 }
                 if(property.notNull){
                     createTableBuilder.append(" not null ");
