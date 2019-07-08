@@ -26,6 +26,7 @@ import java.util.stream.Stream;
 
 public class ReflectionUtil {
     private static Logger logger = LoggerFactory.getLogger(ReflectionUtil.class);
+    private static String placeHolder = "** NOT SPECIFIED **";
     /**记录实体类信息*/
     public static Map<String, Entity> entityMap = new HashMap<>();
 
@@ -61,15 +62,19 @@ public class ReflectionUtil {
     public static String setValueWithInsertIgnore(PreparedStatement ps,Object instance,String sql) throws SQLException, IllegalAccessException {
         int parameterIndex = 1;
         Property[] properties = ReflectionUtil.entityMap.get(instance.getClass().getName()).properties;
-        sql = sql.replace("?","** NOT SPECIFIED **");
+        StringBuilder sqlBuilder = new StringBuilder(sql.replace("?",placeHolder));
         for(Property property:properties){
             if(property.id){
                 continue;
             }
-            sql = sql.replaceFirst("\\*\\* NOT SPECIFIED \\*\\*",setParameter(instance, ps, parameterIndex, property.field));
+            String parameter = setParameter(instance, ps, parameterIndex, property.field);
+            int indexOf = sqlBuilder.indexOf(placeHolder);
+            if(indexOf>=0){
+                sqlBuilder.replace(indexOf,indexOf+placeHolder.length(),parameter);
+            }
             parameterIndex++;
         }
-        return sql;
+        return sqlBuilder.toString();
     }
 
     /**根据id更新
@@ -79,18 +84,26 @@ public class ReflectionUtil {
         int parameterIndex = 1;
         Property[] properties = ReflectionUtil.entityMap.get(instance.getClass().getName()).properties;
         Property id = null;
-        sql = sql.replace("?","** NOT SPECIFIED **");
+        StringBuilder sqlBuilder = new StringBuilder(sql.replace("?",placeHolder));
         for(Property property:properties){
             if(property.id){
                 id = property;
                 continue;
             }
-            sql = sql.replaceFirst("\\*\\* NOT SPECIFIED \\*\\*",setParameter(instance, ps, parameterIndex, property.field));
+            String parameter = setParameter(instance, ps, parameterIndex, property.field);
+            int indexOf = sqlBuilder.indexOf(placeHolder);
+            if(indexOf>=0){
+                sqlBuilder.replace(indexOf,indexOf+placeHolder.length(),parameter);
+            }
             parameterIndex++;
         }
         //再设置id属性
-        sql.replaceFirst("\\*\\* NOT SPECIFIED \\*\\*",setParameter(instance,ps,parameterIndex,id.field));
-        return sql;
+        String parameter = setParameter(instance, ps, parameterIndex, id.field);
+        int indexOf = sqlBuilder.indexOf(placeHolder);
+        if(indexOf>=0){
+            sqlBuilder.replace(indexOf,indexOf+placeHolder.length(),parameter);
+        }
+        return sqlBuilder.toString();
     }
 
     /**
@@ -99,19 +112,27 @@ public class ReflectionUtil {
     public static String setValueWithUpdateByUniqueKey(PreparedStatement ps,Object instance,String sql) throws SQLException, IllegalAccessException {
         int parameterIndex = 1;
         Property[] properties = ReflectionUtil.entityMap.get(instance.getClass().getName()).properties;
-        sql = sql.replace("?","** NOT SPECIFIED **");
+        StringBuilder sqlBuilder = new StringBuilder(sql.replace("?",placeHolder));
         for(Property property:properties){
             //先设置非id和Unique字段
             if(property.id||property.unique){
                 continue;
             }
-            sql = sql.replaceFirst("\\*\\* NOT SPECIFIED \\*\\*",setParameter(instance, ps, parameterIndex, property.field));
+            String parameter = setParameter(instance, ps, parameterIndex, property.field);
+            int indexOf = sqlBuilder.indexOf(placeHolder);
+            if(indexOf>=0){
+                sqlBuilder.replace(indexOf,indexOf+placeHolder.length(),parameter);
+            }
             parameterIndex++;
         }
         for(Property property:properties){
             //再设置Unique字段查询条件
             if(property.unique){
-                sql = sql.replaceFirst("\\*\\* NOT SPECIFIED \\*\\*",setParameter(instance, ps, parameterIndex, property.field));
+                String parameter = setParameter(instance, ps, parameterIndex, property.field);
+                int indexOf = sqlBuilder.indexOf(placeHolder);
+                if(indexOf>=0){
+                    sqlBuilder.replace(indexOf,indexOf+placeHolder.length(),parameter);
+                }
                 parameterIndex++;
             }
         }
