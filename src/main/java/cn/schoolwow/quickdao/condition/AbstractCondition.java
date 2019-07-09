@@ -866,10 +866,12 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
                 count++;
             }
         }
-        if(count==1){
+        if(count==0){
+            return null;
+        }else if(count==1){
             return fieldName;
         }else{
-            throw new IllegalArgumentException("类[" + mainClassName + "]存在[" + fields.length + "]个类型为[" + className + "]的成员变量!");
+            throw new IllegalArgumentException("类[" + mainClassName + "]存在[" + count + "]个类型为[" + className + "]的成员变量!");
         }
     }
 
