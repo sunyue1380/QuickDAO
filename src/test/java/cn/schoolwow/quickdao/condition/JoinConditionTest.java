@@ -3,10 +3,8 @@ package cn.schoolwow.quickdao.condition;
 import cn.schoolwow.quickdao.QuickDAOTest;
 import cn.schoolwow.quickdao.dao.DAO;
 import cn.schoolwow.quickdao.domain.PageVo;
-import cn.schoolwow.quickdao.entity.logic.PlayHistory;
 import cn.schoolwow.quickdao.entity.logic.PlayList;
 import cn.schoolwow.quickdao.entity.logic.Project;
-import cn.schoolwow.quickdao.entity.logic.Video;
 import cn.schoolwow.quickdao.entity.user.Report;
 import cn.schoolwow.quickdao.entity.user.Talk;
 import cn.schoolwow.quickdao.entity.user.User;
@@ -29,6 +27,12 @@ public class JoinConditionTest extends QuickDAOTest {
 
     public JoinConditionTest(DAO dao) {
         super(dao);
+        initializeUser();
+        initializeProject();
+        initializeTalk();
+        initializeReport();
+        initializePlaylist();
+        initializeUserPlaylist();
     }
 
     @Test
@@ -71,48 +75,30 @@ public class JoinConditionTest extends QuickDAOTest {
                 .getList();
         logger.info("[关联查询][查询用户id为1所订阅的播单]查询结果:{}", JSON.toJSON(playListList));
         Assert.assertEquals(1,playListList.size());
-
-        //测试多个外键关联
-        List<PlayHistory> playHistoryList = dao.query(PlayHistory.class)
-                .joinTable(User.class, "user_id", "uid")
-                .addQuery("username", "sunyue@schoolwow.cn")
-                .orderByDesc("uid")
-                .done()
-                .joinTable(Video.class, "video_id", "id")
-                .addQuery("title", "创业时代 01")
-                .addInQuery("id", new Long[]{1l})
-                .addNotNullQuery("title")
-                .addNullQuery("publishTime")
-                .addNotEmptyQuery("picture")
-                .orderByDesc("id")
-                .done()
-                .getList();
-        logger.info("[多个外键关联查询][查询用户名为sunyue@schoolwow.cn的对于视频标题为创业时代 01的播放历史]查询结果:{}", JSON.toJSON(playHistoryList));
-        Assert.assertEquals(1,playListList.size());
     }
 
     @Test
     public void testPagingListCompositQuery(){
-        PageVo<User> pagingList = dao.query(Video.class)
-                .joinTable(PlayList.class, "playlistId", "id")
+        PageVo<User> pagingList = dao.query(User.class)
+                .joinTable(Project.class, "project", "key")
                 .done()
                 .page(1, 10)
                 .getCompositPagingList();
         logger.info("[分页复杂查询]查询结果:{}", JSON.toJSONString(pagingList));
-        Assert.assertEquals(1,pagingList.getTotalSize());
+        Assert.assertEquals(2,pagingList.getTotalSize());
     }
 
     @Test
     public void testGetCompositArray(){
-        Condition<Video> videoCondition = dao.query(Video.class)
-                .addQuery("id", "1")
-                .joinTable(PlayList.class, "playlist_id", "id")
+        Condition<User> userCondition = dao.query(User.class)
+                .addQuery("uid", "1")
+                .joinTable(Project.class, "project", "key")
                 .done();
-        JSONArray array = videoCondition.getCompositArray();
-        logger.info("[复杂查询-Array][查询视频id为1的带播单信息的视频信息]{}", array.toJSONString());
+        JSONArray array = userCondition.getCompositArray();
+        logger.info("[复杂查询-Array][查询用户id为1]{}", array.toJSONString());
         Assert.assertEquals(1,array.size());
-        List<Video> videoList = videoCondition.getCompositList();
-        logger.info("[复杂查询-List][查询视频id为1的带播单信息的视频信息]{}", videoList);
+        List<User> videoList = userCondition.getCompositList();
+        logger.info("[复杂查询-List][查询用户id为1]{}", videoList);
         Assert.assertEquals(1,videoList.size());
     }
 
