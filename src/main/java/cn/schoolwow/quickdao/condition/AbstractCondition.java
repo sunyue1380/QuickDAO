@@ -750,7 +750,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
             throw new IllegalArgumentException("请先调用page()函数!");
         }
         pageVo.setTotalSize(count());
-        pageVo.setTotalPage((int) (pageVo.getTotalSize() / pageVo.getPageSize()) + 1);
+        pageVo.setTotalPage((pageVo.getTotalSize() / pageVo.getPageSize()+pageVo.getTotalSize()%pageVo.getPageSize()>0?1:0));
         pageVo.setHasMore(pageVo.getCurrentPage() < pageVo.getTotalPage());
         return pageVo;
     }
