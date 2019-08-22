@@ -238,11 +238,6 @@ public class ReflectionUtil {
             }
             for (Class c : classList) {
                 Entity entity = entityMap.get(c.getName());
-                entity.ignore = c.getDeclaredAnnotation(Ignore.class) != null;
-                if(entity.ignore){
-                    logger.debug("[忽略实体类]类名:{},该类被@Ignore注解修饰,将跳过该实体类!",c.getName());
-                    continue;
-                }
                 entity.className = c.getSimpleName();
                 if(c.getDeclaredAnnotation(Comment.class)!=null){
                     Comment comment = (Comment) c.getDeclaredAnnotation(Comment.class);
@@ -384,6 +379,10 @@ public class ReflectionUtil {
             return classList;
         }
         Stream<Class> stream = classList.stream().filter((_class)->{
+            if(_class.getAnnotation(Ignore.class)!=null){
+                logger.debug("[忽略实体类]类名:{},该类被@Ignore注解修饰,将跳过该实体类!",_class.getName());
+                return false;
+            }
             boolean result = true;
             //根据类过滤
             if(QuickDAOConfig.ignoreClassList!=null){

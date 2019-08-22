@@ -8,8 +8,6 @@ public class Entity {
     public Class _class;
     /**实体类表名*/
     public String tableName;
-    /**是否忽略*/
-    public boolean ignore;
     /**实体类名*/
     public String className;
     /**表注释*/

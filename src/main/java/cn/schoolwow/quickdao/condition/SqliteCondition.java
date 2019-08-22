@@ -33,7 +33,7 @@ public class SqliteCondition extends AbstractCondition{
         sqlBuilder.append(query.setBuilder.toString()+" ");
         sqlBuilder.append(query.whereBuilder.toString());
         sql = sqlBuilder.toString().replace("t."," ").replaceAll("\\s+"," ");
-        logger.info("[批量更新]执行SQL语句:{}",sql);
+        logger.debug("[批量更新]执行SQL语句:{}",sql);
 
         long effect = -1;
         try (Connection connection = dataSource.getConnection();
