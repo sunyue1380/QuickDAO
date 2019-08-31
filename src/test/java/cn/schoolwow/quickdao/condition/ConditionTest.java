@@ -127,6 +127,7 @@ public class ConditionTest extends QuickDAOTest{
                 .addAggerate("COUNT","id","count(id)")
                 .addColumn("tv")
                 .groupBy("tv")
+                .groupBy("id")
                 .orderBy("id")
                 .getAggerateList();
         logger.info("[聚合查询]查询结果:{}",array.toJSONString());

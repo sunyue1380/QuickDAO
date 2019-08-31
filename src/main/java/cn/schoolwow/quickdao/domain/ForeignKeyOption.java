@@ -1,6 +1,8 @@
 package cn.schoolwow.quickdao.domain;
 
-/**外键级联策略*/
+/**
+ * 外键级联策略
+ */
 public enum ForeignKeyOption {
     RESTRICT("RESTRICT"),
     NOACTION("NO ACTION"),
@@ -9,7 +11,7 @@ public enum ForeignKeyOption {
 
     private String operation;
 
-    ForeignKeyOption(String operation){
+    ForeignKeyOption(String operation) {
         this.operation = operation;
     }
 

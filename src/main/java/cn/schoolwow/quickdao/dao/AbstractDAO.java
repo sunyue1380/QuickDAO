@@ -1,13 +1,13 @@
 package cn.schoolwow.quickdao.dao;
 
-import cn.schoolwow.quickdao.condition.AbstractCondition;
 import cn.schoolwow.quickdao.condition.Condition;
-import cn.schoolwow.quickdao.condition.SqliteCondition;
 import cn.schoolwow.quickdao.domain.Entity;
 import cn.schoolwow.quickdao.domain.Property;
+import cn.schoolwow.quickdao.helper.SQLHelper;
+import cn.schoolwow.quickdao.syntax.Syntax;
+import cn.schoolwow.quickdao.syntax.SyntaxHandler;
 import cn.schoolwow.quickdao.util.QuickDAOConfig;
 import cn.schoolwow.quickdao.util.ReflectionUtil;
-import cn.schoolwow.quickdao.util.SQLUtil;
 import cn.schoolwow.quickdao.util.ValidateUtil;
 import com.alibaba.fastjson.JSON;
 import org.slf4j.Logger;
@@ -19,11 +19,24 @@ import java.util.*;
 
 public abstract class AbstractDAO implements DAO {
     Logger logger = LoggerFactory.getLogger(AbstractDAO.class);
-    /**字段映射*/
+    /**
+     * 字段映射
+     */
     protected Map<String, String> fieldMapping = new HashMap<String, String>();
     protected DataSource dataSource;
-    private Connection connection;
-    /**是否开启事务*/
+    protected Connection connection;
+    /**
+     * 差异语法
+     */
+    protected SyntaxHandler syntaxHandler;
+    /**
+     * SQL语句
+     */
+    protected SQLHelper sqlHelper;
+
+    /**
+     * 是否开启事务
+     */
     public boolean startTranscation = false;
 
     public AbstractDAO(DataSource dataSource) {
@@ -43,28 +56,19 @@ public abstract class AbstractDAO implements DAO {
         fieldMapping.put("timestamp", "TIMESTAMP");
     }
 
-    protected enum Syntax{
-        AutoIncrement,
-        InsertIgnore,
-        Comment;
-    }
-
-    /**提取各个数据库产品的SQL差异部分的语法*/
-    protected abstract String getSyntax(Syntax syntax,Object... values);
-
     @Override
-    public boolean exist(Object instance){
+    public boolean exist(Object instance) {
         try {
             //有id则一定存在
-            if(ReflectionUtil.hasId(instance)){
+            if (ReflectionUtil.hasId(instance)) {
                 return true;
             }
             //有唯一性约束则根据唯一性约束查询
             Condition condition = getUniqueCondition(instance);
-            if(condition==null){
+            if (condition == null) {
                 return false;
             }
-            return condition.count()>0;
+            return condition.count() > 0;
         } catch (IllegalAccessException e) {
             e.printStackTrace();
         }
@@ -72,35 +76,34 @@ public abstract class AbstractDAO implements DAO {
     }
 
     @Override
-    public <T> T fetch(Class<T> _class, long id){
+    public <T> T fetch(Class<T> _class, long id) {
         String property = ReflectionUtil.entityMap.get(_class.getName()).id.name;
         return fetch(_class, property, id);
     }
 
     @Override
-    public <T> T fetch(Class<T> _class, String property, Object value){
-        List<T> instanceList = fetchList(_class,property,value);
-        if(ValidateUtil.isNotEmpty(instanceList)){
+    public <T> T fetch(Class<T> _class, String property, Object value) {
+        List<T> instanceList = fetchList(_class, property, value);
+        if (ValidateUtil.isNotEmpty(instanceList)) {
             return instanceList.get(0);
-        }else{
+        } else {
             return null;
         }
     }
 
     @Override
-    public <T> List<T> fetchList(Class<T> _class, String property, Object value){
-        try {
-            Connection connection = dataSource.getConnection();
+    public <T> List<T> fetchList(Class<T> _class, String property, Object value) {
+        try (Connection connection = dataSource.getConnection()) {
             PreparedStatement ps = null;
             int count = -1;
-            if(value==null){
-                String fetchNullSQL = SQLUtil.fetchNull(_class,property);
-                logger.debug("[根据属性{}=>{}获取对象]执行sql:{}",property,value,fetchNullSQL);
+            if (value == null) {
+                String fetchNullSQL = sqlHelper.fetchNull(_class, property);
+                logger.debug("[根据属性{}=>{}获取对象]执行sql:{}", property, value, fetchNullSQL);
                 ps = connection.prepareStatement(fetchNullSQL);
                 count = (int) query(_class).addNullQuery(property).count();
-            }else{
-                String fetchSQL = SQLUtil.fetch(_class, property);
-                logger.debug("[根据属性{}=>{}获取对象]执行sql:{}",property,value,fetchSQL.replace("?",value.toString()));
+            } else {
+                String fetchSQL = sqlHelper.fetch(_class, property);
+                logger.debug("[根据属性{}=>{}获取对象]执行sql:{}", property, value, fetchSQL.replace("?", value.toString()));
                 ps = connection.prepareStatement(fetchSQL);
                 switch (value.getClass().getSimpleName().toLowerCase()) {
                     case "int": {
@@ -135,31 +138,24 @@ public abstract class AbstractDAO implements DAO {
                         ps.setObject(1, value);
                     }
                 }
-                count = (int) query(_class).addQuery(property,value).count();
+                count = (int) query(_class).addQuery(property, value).count();
             }
             ResultSet resultSet = ps.executeQuery();
-            List<T> instanceList = ReflectionUtil.mappingResultSetToJSONArray(resultSet,count).toJavaList(_class);
+            List<T> instanceList = ReflectionUtil.mappingResultSetToJSONArray(resultSet, count).toJavaList(_class);
             ps.close();
             connection.close();
             return instanceList;
-        }catch (Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
             return null;
         }
     }
 
     @Override
-    public <T> Condition<T> query(Class<T> _class) {
-        //根据类型返回对应
-        if(this instanceof SQLiteDAO||this instanceof H2DAO){
-            return new SqliteCondition(_class,dataSource,this);
-        }else{
-            return new AbstractCondition<>(_class, dataSource,this);
-        }
-    }
+    public abstract <T> Condition<T> query(Class<T> _class);
 
     @Override
-    public long save(Object instance){
+    public long save(Object instance) {
         if (instance == null) {
             return 0;
         }
@@ -170,50 +166,50 @@ public abstract class AbstractDAO implements DAO {
             long effect = 0;
 
             Entity entity = ReflectionUtil.entityMap.get(_class.getName());
-            if(exist(instance)) {
-                if(entity.uniqueKeyProperties!=null&&entity.uniqueKeyProperties.length+1!=entity.properties.length){
+            if (exist(instance)) {
+                if (entity.uniqueKeyProperties != null && entity.uniqueKeyProperties.length + 1 != entity.properties.length) {
                     //根据唯一性约束更新
-                    String updateByUniqueKey = SQLUtil.updateByUniqueKey(_class);
+                    String updateByUniqueKey = sqlHelper.updateByUniqueKey(_class);
                     ps = connection.prepareStatement(updateByUniqueKey);
-                    logger.debug("[根据唯一性约束更新]执行SQL:{}",ReflectionUtil.setValueWithUpdateByUniqueKey(ps,instance,updateByUniqueKey));
+                    logger.debug("[根据唯一性约束更新]执行SQL:{}", ReflectionUtil.setValueWithUpdateByUniqueKey(ps, instance, updateByUniqueKey));
                     effect = ps.executeUpdate();
                     //获取id并设置
                     Condition condition = getUniqueCondition(instance);
-                    List<Long> ids = condition.getValueList(Long.class,entity.id.name);
-                    if(ids.size()>0){
-                        entity.id.field.setLong(instance,ids.get(0));
+                    List<Long> ids = condition.getValueList(Long.class, entity.id.name);
+                    if (ids.size() > 0) {
+                        entity.id.field.setLong(instance, ids.get(0));
                     }
-                }else if(ReflectionUtil.hasId(instance)){
+                } else if (ReflectionUtil.hasId(instance)) {
                     //根据id更新
-                    String updateById = SQLUtil.updateById(_class);
+                    String updateById = sqlHelper.updateById(_class);
                     ps = connection.prepareStatement(updateById);
                     logger.debug("[根据id更新]执行SQL:{}", ReflectionUtil.setValueWithUpdateById(ps, instance, updateById));
                     effect = ps.executeUpdate();
                 }
-            }else{
+            } else {
                 //执行insertIgnore
-                String insertIgnore = SQLUtil.insertIgnore(_class,getSyntax(Syntax.InsertIgnore));
-                ps = connection.prepareStatement(insertIgnore,PreparedStatement.RETURN_GENERATED_KEYS);
-                logger.debug("[执行插入操作]执行SQL:{}",ReflectionUtil.setValueWithInsertIgnore(ps,instance,insertIgnore));
+                String insertIgnore = sqlHelper.insertIgnore(_class, syntaxHandler.getSyntax(Syntax.InsertIgnore));
+                ps = connection.prepareStatement(insertIgnore, PreparedStatement.RETURN_GENERATED_KEYS);
+                logger.debug("[执行插入操作]执行SQL:{}", ReflectionUtil.setValueWithInsertIgnore(ps, instance, insertIgnore));
                 effect = ps.executeUpdate();
-                if(effect>0){
+                if (effect > 0) {
                     //获取主键
                     ResultSet rs = ps.getGeneratedKeys();
-                    if(rs.next()){
+                    if (rs.next()) {
                         long id = rs.getLong(1);
-                        entity.id.field.setLong(instance,id);
+                        entity.id.field.setLong(instance, id);
                     }
                     rs.close();
                 }
             }
-            if(ps!=null){
+            if (ps != null) {
                 ps.close();
             }
-            if(!startTranscation){
+            if (!startTranscation) {
                 connection.close();
             }
             return effect;
-        }catch (Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
             return -1;
         }
@@ -231,47 +227,47 @@ public abstract class AbstractDAO implements DAO {
             Class _class = instanceList.get(0).getClass();
             Entity entity = ReflectionUtil.entityMap.get(_class.getName());
 
-            String updateByUniqueKey = SQLUtil.updateByUniqueKey(_class);
+            String updateByUniqueKey = sqlHelper.updateByUniqueKey(_class);
             PreparedStatement _updateByUniqueKeyPs = null;
-            if(entity.uniqueKeyProperties!=null&&entity.uniqueKeyProperties.length+1!=entity.properties.length){
+            if (entity.uniqueKeyProperties != null && entity.uniqueKeyProperties.length + 1 != entity.properties.length) {
                 //如果有则获取对应语句
-                logger.debug("[根据唯一性约束更新]SQL语句:{}",updateByUniqueKey);
+                logger.debug("[根据唯一性约束更新]SQL语句:{}", updateByUniqueKey);
                 _updateByUniqueKeyPs = connection.prepareStatement(updateByUniqueKey);
             }
             PreparedStatement updateByUniqueKeyPs = _updateByUniqueKeyPs;
 
-            String updateById = SQLUtil.updateById(instanceList.get(0).getClass());
+            String updateById = sqlHelper.updateById(instanceList.get(0).getClass());
             PreparedStatement updateByIdPs = connection.prepareStatement(updateById);
-            String insertIgnore = SQLUtil.insertIgnore(instanceList.get(0).getClass(),getSyntax(Syntax.InsertIgnore));
+            String insertIgnore = sqlHelper.insertIgnore(instanceList.get(0).getClass(), syntaxHandler.getSyntax(Syntax.InsertIgnore));
             PreparedStatement insertIgnorePs = connection.prepareStatement(insertIgnore);
             //根据每个实体类具体情况插入
-            for(Object instance:instanceList){
+            for (Object instance : instanceList) {
                 try {
-                    if(exist(instance)){
-                        if (_updateByUniqueKeyPs!=null) {
+                    if (exist(instance)) {
+                        if (_updateByUniqueKeyPs != null) {
                             //如果有唯一性约束则以唯一性约束更新
-                            logger.debug("[根据唯一性约束更新]执行SQL:{}",ReflectionUtil.setValueWithUpdateByUniqueKey(updateByUniqueKeyPs,instance,updateByUniqueKey));
+                            logger.debug("[根据唯一性约束更新]执行SQL:{}", ReflectionUtil.setValueWithUpdateByUniqueKey(updateByUniqueKeyPs, instance, updateByUniqueKey));
                             updateByUniqueKeyPs.addBatch();
-                        }else if(ReflectionUtil.hasId(instance)){
+                        } else if (ReflectionUtil.hasId(instance)) {
                             //根据id更新
-                            logger.debug("[根据id更新]执行SQL:{}",ReflectionUtil.setValueWithUpdateById(updateByIdPs,instance,updateById));
+                            logger.debug("[根据id更新]执行SQL:{}", ReflectionUtil.setValueWithUpdateById(updateByIdPs, instance, updateById));
                             updateByIdPs.addBatch();
                         }
-                    }else{
+                    } else {
                         //执行insertIgnore
-                        logger.debug("[执行插入操作]执行SQL:{}",ReflectionUtil.setValueWithInsertIgnore(insertIgnorePs,instance,insertIgnore));
+                        logger.debug("[执行插入操作]执行SQL:{}", ReflectionUtil.setValueWithInsertIgnore(insertIgnorePs, instance, insertIgnore));
                         insertIgnorePs.addBatch();
                     }
-                }catch (Exception e){
-                    logger.warn("[插入单个记录失败]{}",JSON.toJSONString(instance));
+                } catch (Exception e) {
+                    logger.warn("[插入单个记录失败]{}", JSON.toJSONString(instance));
                     e.printStackTrace();
                 }
             }
             //执行Batch并将所有结果添加
             long effect = 0;
-            PreparedStatement[] preparedStatements = {updateByUniqueKeyPs,updateByIdPs,insertIgnorePs};
-            for(int i=0;i<preparedStatements.length;i++){
-                if(preparedStatements[i]==null){
+            PreparedStatement[] preparedStatements = {updateByUniqueKeyPs, updateByIdPs, insertIgnorePs};
+            for (int i = 0; i < preparedStatements.length; i++) {
+                if (preparedStatements[i] == null) {
                     continue;
                 }
                 int[] results = preparedStatements[i].executeBatch();
@@ -280,7 +276,7 @@ public abstract class AbstractDAO implements DAO {
                 }
                 preparedStatements[i].close();
             }
-            if(!startTranscation){
+            if (!startTranscation) {
                 connection.commit();
                 connection.close();
             }
@@ -303,47 +299,49 @@ public abstract class AbstractDAO implements DAO {
     }
 
     @Override
-    public long delete(Class _class, String field, Object value){
+    public long delete(Class _class, String field, Object value) {
         try {
             Connection connection = getConnection();
-            String deleteSQL = SQLUtil.delete(_class, field);
+            String deleteSQL = sqlHelper.delete(_class, field);
             PreparedStatement ps = connection.prepareStatement(deleteSQL);
             ps.setObject(1, value);
-            logger.debug("[根据属性{}=>{}删除]执行SQL:{}",field,value,deleteSQL.replace("?",value.toString()));
+            logger.debug("[根据属性{}=>{}删除]执行SQL:{}", field, value, deleteSQL.replace("?", value.toString()));
             long effect = ps.executeUpdate();
             ps.close();
-            if(!startTranscation){
+            if (!startTranscation) {
                 connection.close();
             }
             return effect;
-        }catch (Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
             return -1;
         }
     }
 
     @Override
-    public long clear(Class _class){
+    public long clear(Class _class) {
         try {
             Connection connection = getConnection();
-            String sql = "delete from `" + ReflectionUtil.entityMap.get(_class.getName()).tableName+"`";
-            logger.debug("[删除{}表]执行SQL:{}", _class.getSimpleName(),sql);
-            PreparedStatement ps = connection.prepareStatement(sql);
+            String deleteSQL = sqlHelper.delete(_class);
+            logger.debug("[删除{}表]执行SQL:{}", _class.getSimpleName(), deleteSQL);
+            PreparedStatement ps = connection.prepareStatement(deleteSQL);
             long effect = ps.executeUpdate();
             ps.close();
-            if(!startTranscation){
+            if (!startTranscation) {
                 connection.close();
             }
             return effect;
-        }catch (Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
             return -1;
         }
     }
 
-    /**开启事务*/
+    /**
+     * 开启事务
+     */
     @Override
-    public void startTransaction(){
+    public void startTransaction() {
         startTranscation = true;
         try {
             connection = getConnection();
@@ -357,10 +355,12 @@ public abstract class AbstractDAO implements DAO {
         }
     }
 
-    /**设置保存点*/
+    /**
+     * 设置保存点
+     */
     @Override
-    public Savepoint setSavePoint(String name){
-        if(connection==null){
+    public Savepoint setSavePoint(String name) {
+        if (connection == null) {
             return null;
         }
         try {
@@ -371,10 +371,12 @@ public abstract class AbstractDAO implements DAO {
         return null;
     }
 
-    /**事务回滚*/
+    /**
+     * 事务回滚
+     */
     @Override
-    public void rollback(){
-        if(connection==null){
+    public void rollback() {
+        if (connection == null) {
             return;
         }
         try {
@@ -384,10 +386,12 @@ public abstract class AbstractDAO implements DAO {
         }
     }
 
-    /**事务回滚*/
+    /**
+     * 事务回滚
+     */
     @Override
-    public void rollback(Savepoint savePoint){
-        if(connection==null){
+    public void rollback(Savepoint savePoint) {
+        if (connection == null) {
             return;
         }
         try {
@@ -397,10 +401,12 @@ public abstract class AbstractDAO implements DAO {
         }
     }
 
-    /**事务提交*/
+    /**
+     * 事务提交
+     */
     @Override
-    public void commit(){
-        if(connection==null){
+    public void commit() {
+        if (connection == null) {
             return;
         }
         try {
@@ -410,11 +416,13 @@ public abstract class AbstractDAO implements DAO {
         }
     }
 
-    /**结束事务*/
+    /**
+     * 结束事务
+     */
     @Override
-    public void endTransaction(){
+    public void endTransaction() {
         startTranscation = false;
-        if(connection==null){
+        if (connection == null) {
             logger.warn("数据库事务连接为空!不做任何操作!");
             return;
         }
@@ -422,37 +430,42 @@ public abstract class AbstractDAO implements DAO {
             connection.close();
         } catch (SQLException e) {
             e.printStackTrace();
-        }finally {
+        } finally {
             connection = null;
         }
     }
 
-    /**建表*/
+    /**
+     * 建表
+     */
     @Override
-    public void create(Class _class){
+    public void create(Class _class) {
         Entity entity = ReflectionUtil.entityMap.get(_class.getName());
+        startTransaction();
         try {
-            Connection connection = dataSource.getConnection();
-            createTable(entity,connection);
-            connection.close();
-        }catch (SQLException e){
+            createTable(entity);
+            commit();
+        } catch (SQLException e) {
             e.printStackTrace();
         }
+        endTransaction();
     }
 
-    /**删表*/
+    /**
+     * 删表
+     */
     @Override
-    public void drop(Class _class){
+    public void drop(Class _class) {
         Entity entity = ReflectionUtil.entityMap.get(_class.getName());
-        String sql = "drop table if exists `"+entity.tableName+"`;";
-        logger.debug("[删除表=>{}]执行SQL:{}",_class.getSimpleName(),sql);
+        String sql = "drop table if exists " + syntaxHandler.getSyntax(Syntax.Escape, entity.tableName);
+        logger.debug("[删除表=>{}]执行SQL:{}", _class.getSimpleName(), sql);
         Connection connection = null;
         try {
             connection = getConnection();
             connection.prepareStatement(sql).execute();
         } catch (SQLException e) {
             e.printStackTrace();
-        }finally {
+        } finally {
             try {
                 connection.close();
             } catch (SQLException e) {
@@ -461,217 +474,115 @@ public abstract class AbstractDAO implements DAO {
         }
     }
 
-    /**删表*/
+    /**
+     * 删表
+     */
     @Override
-    public void rebuild(Class _class){
+    public void rebuild(Class _class) {
         drop(_class);
         create(_class);
     }
 
-    /**仅供Condition类调用*/
+    /**
+     * 仅供Condition类调用
+     */
     public Connection getConnection() throws SQLException {
         //开启事务时使用同一Connection,不开启事务时从线程池中获取
-        if(startTranscation){
-            synchronized (this){
-                if(connection==null){
+        if (startTranscation) {
+            synchronized (this) {
+                if (connection == null) {
                     connection = dataSource.getConnection();
                     connection.setAutoCommit(false);
                 }
             }
             return connection;
-        }else{
+        } else {
             return dataSource.getConnection();
         }
     }
 
-    /**获取实例的唯一性约束查询条件*/
+    /**
+     * 获取实例的唯一性约束查询条件
+     */
     private <T> Condition<T> getUniqueCondition(Object instance) throws IllegalAccessException {
         Property[] properties = ReflectionUtil.entityMap.get(instance.getClass().getName()).uniqueKeyProperties;
-        if(properties==null||properties.length==0){
+        if (properties == null || properties.length == 0) {
             return null;
         }
         Condition condition = query(instance.getClass());
-        for(Property property:properties){
-            condition.addQuery(property.name,property.field.get(instance));
+        for (Property property : properties) {
+            condition.addQuery(property.name, property.field.get(instance));
         }
         return condition;
     }
 
-    /**获取数据库信息*/
-    protected Entity[] getDatabaseInfo() throws SQLException {
-        Connection connection = dataSource.getConnection();
-        connection.setAutoCommit(false);
-        PreparedStatement tablePs = connection.prepareStatement("show tables;");
-        ResultSet tableRs = tablePs.executeQuery();
-        List<Entity> entityList = new ArrayList<>();
-        while (tableRs.next()) {
-            Entity entity = new Entity();
-            entity.tableName = tableRs.getString(1);
+    /**
+     * 获取数据库信息
+     */
+    protected abstract Entity[] getDatabaseInfo() throws SQLException;
 
-            List<Property> propertyList = new ArrayList<>();
-            PreparedStatement propertyPs = connection.prepareStatement("show columns from `" + tableRs.getString(1)+"`");
-            ResultSet propertiesRs = propertyPs.executeQuery();
-            while (propertiesRs.next()) {
-                Property property = new Property();
-                property.column = propertiesRs.getString("Field");
-                property.columnType = propertiesRs.getString("Type");
-                property.notNull = "NO".equals(propertiesRs.getString("Null"));
-                property.unique = "UNI".equals(propertiesRs.getString("Key"));
-                if(null != propertiesRs.getString("Default")){
-                    property.defaultValue = propertiesRs.getString("Default");
-                }
-                propertyList.add(property);
-            }
-            entity.properties = propertyList.toArray(new Property[0]);
-            entityList.add(entity);
-            propertiesRs.close();
-            propertyPs.close();
-        }
-        tableRs.close();
-        connection.close();
-        return entityList.toArray(new Entity[0]);
-    }
+    /**
+     * 创建新表
+     */
+    protected abstract void createTable(Entity entity) throws SQLException;
+
+    /**
+     * 对比实体类和数据表并创建新列
+     */
+    protected abstract void compareEntityDatabase(Entity entity, Entity dbEntity) throws SQLException;
+
+    /**
+     * 创建唯一索引
+     */
+    protected abstract void createUniqueKey(Entity entity) throws SQLException;
+
+    /**
+     * 创建外键约束
+     */
+    protected abstract void createForeignKey(Collection<Entity> entityList) throws SQLException;
+
+    /**
+     * 约束是否存在
+     */
+    protected abstract boolean isConstraintExist(String constraintName) throws SQLException;
 
     public void autoBuildDatabase() throws SQLException {
-        if(!QuickDAOConfig.autoCreateTable){
+        if (!QuickDAOConfig.autoCreateTable) {
             return;
         }
         Collection<Entity> entityList = ReflectionUtil.entityMap.values();
-        for(Entity entity:entityList){
+        for (Entity entity : entityList) {
             Property[] properties = entity.properties;
-            for(Property property:properties){
-                if(property.columnType==null){
+            for (Property property : properties) {
+                if (property.columnType == null) {
                     property.columnType = fieldMapping.get(property.type);
                 }
             }
         }
         //对比实体类信息与数据库信息
         Entity[] dbEntityList = getDatabaseInfo();
-        logger.debug("[获取数据库信息]数据库表个数:{}",dbEntityList.length);
+        logger.debug("[获取数据库信息]数据库表个数:{}", dbEntityList.length);
 
-        Connection connection = dataSource.getConnection();
-        connection.setAutoCommit(false);
-        for(Entity entity:entityList){
+        startTransaction();
+        for (Entity entity : entityList) {
             boolean entityExist = false;
-            for(Entity dbEntity:dbEntityList){
-                if(entity.tableName.equals(dbEntity.tableName)){
+            for (Entity dbEntity : dbEntityList) {
+                if (entity.tableName.equals(dbEntity.tableName)) {
                     //对比字段
-                    compareEntityDatabase(entity,dbEntity,connection);
+                    compareEntityDatabase(entity, dbEntity);
                     entityExist = true;
                     break;
                 }
             }
-            if(!entityExist){
+            if (!entityExist) {
                 //新增数据库表
-                createTable(entity,connection);
+                createTable(entity);
             }
         }
-        if(QuickDAOConfig.openForeignKey){
-            createForeignKey(entityList,connection);
+        if (QuickDAOConfig.openForeignKey) {
+            createForeignKey(entityList);
         }
-        connection.commit();
-        connection.setAutoCommit(true);
-        connection.close();
-    }
-
-    /**创建新表*/
-    protected void createTable(Entity entity,Connection connection) throws SQLException {
-        StringBuilder createTableBuilder = new StringBuilder("create table if not exists `" + entity.tableName + "`(");
-        Property[] properties = entity.properties;
-        for(Property property:properties){
-            createTableBuilder.append("`" + property.column + "` " + property.columnType);
-            if(property.id){
-                createTableBuilder.append(" primary key " + getSyntax(Syntax.AutoIncrement));
-            }else{
-                if(property.defaultValue!=null){
-                    createTableBuilder.append(" default '" + property.defaultValue+"'");
-                }
-                if(property.notNull){
-                    createTableBuilder.append(" not null ");
-                }
-            }
-            if(null!=property.comment){
-                createTableBuilder.append(" " + getSyntax(Syntax.Comment, property.comment));
-            }
-            createTableBuilder.append(",");
-        }
-        createTableBuilder.deleteCharAt(createTableBuilder.length() - 1);
-        createTableBuilder.append(")");
-        if(null!=entity.comment){
-            createTableBuilder.append("comment='"+entity.comment+"';");
-        }
-        String sql = createTableBuilder.toString().replaceAll("\\s+", " ");
-        logger.debug("[生成新表]类名:{},表名:{},执行SQL:{},", entity.className, entity.tableName, sql);
-        connection.prepareStatement(sql).executeUpdate();
-        createUniqueKey(entity,connection);
-    }
-
-    /**对比实体类和数据表*/
-    protected void compareEntityDatabase(Entity entity,Entity dbEntity,Connection connection) throws SQLException {
-        Property[] entityProperties = entity.properties;
-        Property[] dbEntityProperties = dbEntity.properties;
-        for(Property entityProperty:entityProperties){
-            boolean columnExist = false;
-            for(Property dbEntityProperty:dbEntityProperties){
-                if(dbEntityProperty.column.equals(entityProperty.column)){
-                    columnExist = true;
-                    break;
-                }
-            }
-            if(!columnExist){
-                StringBuilder addColumnBuilder = new StringBuilder();
-                addColumnBuilder.append("alter table `" + entity.tableName + "` add column " + "`" + entityProperty.column + "` " + entityProperty.columnType+" ");
-                if(null!=entityProperty.defaultValue){
-                    addColumnBuilder.append(" default " + entityProperty.defaultValue);
-                }
-                if(null!=entityProperty.comment){
-                    addColumnBuilder.append(" "+getSyntax(Syntax.Comment,entityProperty.comment));
-                }
-                if(null!=entityProperty.foreignKey){
-                    addColumnBuilder.append(",constraint `"+entityProperty.foreignKeyName+"` foreign key(`"+entityProperty.column+"`) references "+entityProperty.foreignKey);
-                }
-                addColumnBuilder.append(";");
-                String sql = addColumnBuilder.toString().replaceAll("\\s+", " ");
-                logger.debug("[添加新列]表:{},列名:{},执行SQL:{}",entity.tableName,entityProperty.column+"("+entityProperty.columnType+")",sql);
-                connection.prepareStatement(sql).executeUpdate();
-                if(entityProperty.unique){
-                    createUniqueKey(entity,connection);
-                }
-            }
-        }
-    }
-
-    /**创建唯一索引*/
-    protected void createUniqueKey(Entity entity,Connection connection) throws SQLException {
-        if(null==entity.uniqueKeyProperties||entity.uniqueKeyProperties.length==0){
-            return;
-        }
-        StringBuilder uniqueKeyBuilder = new StringBuilder("alter table `"+entity.tableName+"` add unique index `"+entity.tableName+"_unique_index` (");
-        for(Property property:entity.uniqueKeyProperties){
-            uniqueKeyBuilder.append("`"+property.column+"`,");
-        }
-        uniqueKeyBuilder.deleteCharAt(uniqueKeyBuilder.length()-1);
-        uniqueKeyBuilder.append(");");
-        String uniqueKeySQL = uniqueKeyBuilder.toString().replaceAll("\\s+", " ");
-        logger.debug("[添加唯一性约束]表:{},执行SQL:{}",entity.tableName,uniqueKeySQL);
-        connection.prepareStatement(uniqueKeySQL).executeUpdate();
-    }
-
-    /**创建外键约束*/
-    protected void createForeignKey(Collection<Entity> entityList,Connection connection) throws SQLException {
-        for(Entity entity:entityList){
-            Property[] foreignKeyProperties = entity.foreignKeyProperties;
-            for(Property property:foreignKeyProperties){
-                ResultSet resultSet = connection.prepareStatement("SELECT count(1) FROM information_schema.KEY_COLUMN_USAGE WHERE CONSTRAINT_NAME='"+property.foreignKeyName+"'").executeQuery();
-                if(resultSet.next()){
-                    if(resultSet.getInt(1)==0){
-                        String foreignKeySQL = "alter table `"+entity.tableName+"` add constraint `"+property.foreignKeyName+"` foreign key(`"+property.column+"`) references "+property.foreignKey;
-                        logger.info("[生成外键约束]约束名:{},执行SQL:{}",property.foreignKeyName,foreignKeySQL);
-                        connection.prepareStatement(foreignKeySQL).executeUpdate();
-                    }
-                }
-                resultSet.close();
-            }
-        }
+        commit();
+        endTransaction();
     }
 }

@@ -10,10 +10,18 @@ import java.lang.annotation.Target;
 @Target(ElementType.FIELD)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface ForeignKey {
-    /**关联到哪张表*/
+    /**
+     * 关联到哪张表
+     */
     Class table();
-    /**关联到哪个字段*/
+
+    /**
+     * 关联到哪个字段
+     */
     String field() default "id";
-    /**外键记录被更新和删除时的操作*/
+
+    /**
+     * 外键记录被更新和删除时的操作
+     */
     ForeignKeyOption foreignKeyOption() default ForeignKeyOption.RESTRICT;
 }

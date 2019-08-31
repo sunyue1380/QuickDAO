@@ -27,24 +27,28 @@ import java.util.stream.Stream;
 public class ReflectionUtil {
     private static Logger logger = LoggerFactory.getLogger(ReflectionUtil.class);
     private static String placeHolder = "** NOT SPECIFIED **";
-    /**记录实体类信息*/
+    /**
+     * 记录实体类信息
+     */
     public static Map<String, Entity> entityMap = new HashMap<>();
 
-    /**对象是否存在id*/
+    /**
+     * 对象是否存在id
+     */
     public static boolean hasId(Object instance) throws IllegalAccessException {
         Property property = entityMap.get(instance.getClass().getName()).id;
         String type = property.type;
         switch (type) {
             case "int": {
-                return property.field.getInt(instance) >0;
+                return property.field.getInt(instance) > 0;
             }
             case "integer": {
                 return (property.field.get(instance) != null && property.field.getInt(instance) > 0);
             }
             case "long": {
-                if(property.field.getType().isPrimitive()){
-                    return property.field.getLong(instance)>0;
-                }else{
+                if (property.field.getType().isPrimitive()) {
+                    return property.field.getLong(instance) > 0;
+                } else {
                     return property.field.get(instance) == null;
                 }
             }
@@ -55,83 +59,111 @@ public class ReflectionUtil {
     }
 
     /**
+     * 找到mainClass中第一个类型为_class的字段名称
+     */
+    public static String getFirstClassFieldInMainClass(String mainClassName, String className) {
+        Entity entity = ReflectionUtil.entityMap.get(mainClassName);
+        Field[] fields = entity.compositFields;
+        if (fields == null || fields.length == 0) {
+            return null;
+        }
+        int count = 0;
+        String fieldName = null;
+        for (Field field : fields) {
+            if (field.getType().getName().equalsIgnoreCase(className)) {
+                fieldName = field.getName();
+                count++;
+            }
+        }
+        if (count == 0) {
+            return null;
+        } else if (count == 1) {
+            return fieldName;
+        } else {
+            throw new IllegalArgumentException("类[" + mainClassName + "]存在[" + count + "]个类型为[" + className + "]的成员变量!");
+        }
+    }
+
+    /**
      * 直接插入
      * 为prepareStatement赋值
      * 返回实际执行的SQL语句
-     * */
-    public static String setValueWithInsertIgnore(PreparedStatement ps,Object instance,String sql) throws SQLException, IllegalAccessException {
+     */
+    public static String setValueWithInsertIgnore(PreparedStatement ps, Object instance, String sql) throws SQLException, IllegalAccessException {
         int parameterIndex = 1;
         Property[] properties = ReflectionUtil.entityMap.get(instance.getClass().getName()).properties;
-        StringBuilder sqlBuilder = new StringBuilder(sql.replace("?",placeHolder));
-        for(Property property:properties){
-            if(property.id){
+        StringBuilder sqlBuilder = new StringBuilder(sql.replace("?", placeHolder));
+        for (Property property : properties) {
+            if (property.id) {
                 continue;
             }
             String parameter = setParameter(instance, ps, parameterIndex, property.field);
             int indexOf = sqlBuilder.indexOf(placeHolder);
-            if(indexOf>=0){
-                sqlBuilder.replace(indexOf,indexOf+placeHolder.length(),parameter);
+            if (indexOf >= 0) {
+                sqlBuilder.replace(indexOf, indexOf + placeHolder.length(), parameter);
             }
             parameterIndex++;
         }
         return sqlBuilder.toString();
     }
 
-    /**根据id更新
+    /**
+     * 根据id更新
      * 为prepareStatement赋值
-     * */
-    public static String setValueWithUpdateById(PreparedStatement ps,Object instance,String sql) throws SQLException, IllegalAccessException, NoSuchFieldException {
+     */
+    public static String setValueWithUpdateById(PreparedStatement ps, Object instance, String sql) throws SQLException, IllegalAccessException, NoSuchFieldException {
         int parameterIndex = 1;
         Property[] properties = ReflectionUtil.entityMap.get(instance.getClass().getName()).properties;
         Property id = null;
-        StringBuilder sqlBuilder = new StringBuilder(sql.replace("?",placeHolder));
-        for(Property property:properties){
-            if(property.id){
+        StringBuilder sqlBuilder = new StringBuilder(sql.replace("?", placeHolder));
+        for (Property property : properties) {
+            if (property.id) {
                 id = property;
                 continue;
             }
             String parameter = setParameter(instance, ps, parameterIndex, property.field);
             int indexOf = sqlBuilder.indexOf(placeHolder);
-            if(indexOf>=0){
-                sqlBuilder.replace(indexOf,indexOf+placeHolder.length(),parameter);
+            if (indexOf >= 0) {
+                sqlBuilder.replace(indexOf, indexOf + placeHolder.length(), parameter);
             }
             parameterIndex++;
         }
         //再设置id属性
         String parameter = setParameter(instance, ps, parameterIndex, id.field);
         int indexOf = sqlBuilder.indexOf(placeHolder);
-        if(indexOf>=0){
-            sqlBuilder.replace(indexOf,indexOf+placeHolder.length(),parameter);
+        if (indexOf >= 0) {
+            sqlBuilder.replace(indexOf, indexOf + placeHolder.length(), parameter);
         }
         return sqlBuilder.toString();
     }
 
     /**
      * 根据UniqueKey更新
-     * 为prepareStatement赋值*/
-    public static String setValueWithUpdateByUniqueKey(PreparedStatement ps,Object instance,String sql) throws SQLException, IllegalAccessException {
+     * 为prepareStatement赋值
+     */
+    public static String setValueWithUpdateByUniqueKey(PreparedStatement ps, Object instance, String sql) throws SQLException, IllegalAccessException {
         int parameterIndex = 1;
         Property[] properties = ReflectionUtil.entityMap.get(instance.getClass().getName()).properties;
-        StringBuilder sqlBuilder = new StringBuilder(sql.replace("?",placeHolder));
-        for(Property property:properties){
+        StringBuilder sqlBuilder = new StringBuilder(sql.replace("?", placeHolder));
+        for (Property property : properties) {
             //先设置非id和Unique字段
-            if(property.id||property.unique){
+            if (property.id || property.unique) {
                 continue;
             }
             String parameter = setParameter(instance, ps, parameterIndex, property.field);
             int indexOf = sqlBuilder.indexOf(placeHolder);
-            if(indexOf>=0){
-                sqlBuilder.replace(indexOf,indexOf+placeHolder.length(),parameter);
+            if (indexOf >= 0) {
+                sqlBuilder.replace(indexOf, indexOf + placeHolder.length(), parameter);
             }
             parameterIndex++;
         }
-        for(Property property:properties){
+        for (Property property : properties) {
             //再设置Unique字段查询条件
-            if(property.unique){
+            if (property.unique) {
                 String parameter = setParameter(instance, ps, parameterIndex, property.field);
                 int indexOf = sqlBuilder.indexOf(placeHolder);
-                if(indexOf>=0){
-                    sqlBuilder.replace(indexOf,indexOf+placeHolder.length(),parameter);
+                if (indexOf >= 0) {
+                    sqlBuilder.replace(indexOf, indexOf + placeHolder.length(), parameter);
                 }
                 parameterIndex++;
             }
@@ -141,11 +173,12 @@ public class ReflectionUtil {
 
     /**
      * 将ResultSet映射到List中
+     *
      * @return 结果集的映射
-     * */
-    public static <T> List<T> mappingSingleResultToList(ResultSet resultSet,int count,Class<T> _class) throws SQLException, IllegalAccessException, InstantiationException, NoSuchMethodException, InvocationTargetException {
+     */
+    public static <T> List<T> mappingSingleResultToList(ResultSet resultSet, int count, Class<T> _class) throws SQLException, IllegalAccessException, InstantiationException, NoSuchMethodException, InvocationTargetException {
         JSONArray array = new JSONArray(count);
-        while(resultSet.next()){
+        while (resultSet.next()) {
             array.add(resultSet.getString(1));
         }
         resultSet.close();
@@ -154,20 +187,20 @@ public class ReflectionUtil {
 
     /**
      * 映射结果集到JSONArray中
-     * */
-    public static JSONArray mappingResultSetToJSONArray(ResultSet resultSet,int count) throws SQLException {
+     */
+    public static JSONArray mappingResultSetToJSONArray(ResultSet resultSet, int count) throws SQLException {
         ResultSetMetaData metaData = resultSet.getMetaData();
         int columnCount = metaData.getColumnCount();
         String[] columnNames = new String[columnCount];
-        for(int i=1;i<=columnNames.length;i++){
+        for (int i = 1; i <= columnNames.length; i++) {
             String label = metaData.getColumnLabel(i);
-            columnNames[i-1] = StringUtil.Underline2Camel(label.substring(label.indexOf("_")+1));
+            columnNames[i - 1] = StringUtil.Underline2Camel(label.substring(label.indexOf("_") + 1));
         }
         JSONArray array = new JSONArray(count);
-        while(resultSet.next()){
+        while (resultSet.next()) {
             JSONObject o = new JSONObject();
-            for(int i=1;i<=columnCount;i++){
-                o.put(columnNames[i-1],resultSet.getString(i));
+            for (int i = 1; i <= columnCount; i++) {
+                o.put(columnNames[i - 1], resultSet.getString(i));
             }
             array.add(o);
         }
@@ -178,68 +211,80 @@ public class ReflectionUtil {
     /**
      * 设置参数
      * 返回设置的参数值
-     * */
+     */
     private static String setParameter(Object instance, PreparedStatement ps, int parameterIndex, Field field) throws SQLException, IllegalAccessException {
         switch (field.getType().getSimpleName().toLowerCase()) {
             case "int": {
                 ps.setInt(parameterIndex, field.getInt(instance));
-                return ""+field.getInt(instance);
+                return "" + field.getInt(instance);
             }
             case "integer": {
                 ps.setObject(parameterIndex, field.get(instance));
-                return ""+field.get(instance);
+                return "" + field.get(instance);
             }
             case "long": {
-                if(field.getType().isPrimitive()){
+                if (field.getType().isPrimitive()) {
                     ps.setLong(parameterIndex, field.getLong(instance));
-                    return ""+field.getLong(instance);
-                }else{
+                    return "" + field.getLong(instance);
+                } else {
                     ps.setObject(parameterIndex, field.get(instance));
-                    return ""+field.get(instance);
+                    return "" + field.get(instance);
                 }
             }
             case "boolean": {
-                if(field.getType().isPrimitive()){
+                if (field.getType().isPrimitive()) {
                     ps.setBoolean(parameterIndex, field.getBoolean(instance));
-                    return ""+field.getBoolean(instance);
-                }else{
+                    return "" + field.getBoolean(instance);
+                } else {
                     ps.setObject(parameterIndex, field.get(instance));
-                    return ""+field.get(instance);
+                    return "" + field.get(instance);
                 }
             }
             case "string": {
-                ps.setString(parameterIndex, field.get(instance)==null?null:field.get(instance).toString());
-                return "'"+(field.get(instance)==null?"":field.get(instance).toString())+"'";
+                ps.setString(parameterIndex, field.get(instance) == null ? null : field.get(instance).toString());
+                return "'" + (field.get(instance) == null ? "" : field.get(instance).toString()) + "'";
+            }
+            case "date": {
+                Object o = field.get(instance);
+                if (o == null) {
+                    ps.setObject(parameterIndex, null);
+                } else {
+                    java.sql.Date sqlDate = new java.sql.Date(((java.util.Date) o).getTime());
+                    ps.setDate(parameterIndex, sqlDate);
+                }
+                return "'" + (field.get(instance) == null ? "" : field.get(instance).toString()) + "'";
             }
             default: {
                 ps.setObject(parameterIndex, field.get(instance));
-                return "'"+field.get(instance)+"'";
+                return "'" + field.get(instance) + "'";
             }
         }
     }
 
-    /**获取实体类信息*/
+    /**
+     * 获取实体类信息
+     */
     public static void getEntityInfo() throws ClassNotFoundException, IOException {
         Set<String> keySet = QuickDAOConfig.packageNameMap.keySet();
-        for(String packageName:keySet) {
+        for (String packageName : keySet) {
             List<Class> classList = scanEntity(packageName);
             for (Class c : classList) {
                 String tableName = null;
-                if((packageName.length()+c.getSimpleName().length()+1)==c.getName().length()){
+                if ((packageName.length() + c.getSimpleName().length() + 1) == c.getName().length()) {
                     tableName = StringUtil.Camel2Underline(c.getSimpleName());
-                }else{
-                    String prefix = c.getName().substring(packageName.length()+1,c.getName().lastIndexOf(".")).replace(".","_");
-                    tableName = prefix+"@"+StringUtil.Camel2Underline(c.getSimpleName());
+                } else {
+                    String prefix = c.getName().substring(packageName.length() + 1, c.getName().lastIndexOf(".")).replace(".", "_");
+                    tableName = prefix + "@" + StringUtil.Camel2Underline(c.getSimpleName());
                 }
                 Entity entity = new Entity();
                 entity._class = c;
-                entity.tableName = QuickDAOConfig.packageNameMap.get(packageName)+tableName;
-                entityMap.put(c.getName(),entity);
+                entity.tableName = QuickDAOConfig.packageNameMap.get(packageName) + tableName;
+                entityMap.put(c.getName(), entity);
             }
             for (Class c : classList) {
                 Entity entity = entityMap.get(c.getName());
                 entity.className = c.getSimpleName();
-                if(c.getDeclaredAnnotation(Comment.class)!=null){
+                if (c.getDeclaredAnnotation(Comment.class) != null) {
                     Comment comment = (Comment) c.getDeclaredAnnotation(Comment.class);
                     entity.comment = comment.value();
                 }
@@ -254,72 +299,74 @@ public class ReflectionUtil {
                 //添加字段信息
                 {
                     Field[] fields = c.getDeclaredFields();
-                    Field.setAccessible(fields,true);
+                    Field.setAccessible(fields, true);
                     for (int i = 0; i < fields.length; i++) {
-                        if(fields[i].getDeclaredAnnotation(Ignore.class)!= null){
-                            logger.debug("[跳过实体属性]{},该属性被Ignore注解修饰!",fields[i].getName());
+                        if (fields[i].getDeclaredAnnotation(Ignore.class) != null) {
+                            logger.debug("[跳过实体属性]{},该属性被Ignore注解修饰!", fields[i].getName());
                             continue;
                         }
                         //记录实体包类
-                        if(isCompositProperty(fields[i].getType())){
+                        if (isCompositProperty(fields[i].getType())) {
                             compositFieldList.add(fields[i]);
                             continue;
                         }
                         Property property = new Property();
                         property.column = StringUtil.Camel2Underline(fields[i].getName());
-                        if(fields[i].getAnnotation(ColumnType.class)!=null){
+                        if (fields[i].getAnnotation(ColumnType.class) != null) {
                             property.columnType = fields[i].getAnnotation(ColumnType.class).value();
                         }
                         property.name = fields[i].getName();
                         property.type = fields[i].getType().getSimpleName().toLowerCase();
                         property.unique = fields[i].getDeclaredAnnotation(Unique.class) != null;
-                        if(property.unique){
+                        if (property.unique) {
                             uniqueFieldPropertyList.add(property);
                         }
                         property.notNull = fields[i].getDeclaredAnnotation(NotNull.class) != null;
-                        property.id = fields[i].getDeclaredAnnotation(Id.class) != null||"id".equals(property.column);
-                        if(property.id){
+                        property.id = fields[i].getDeclaredAnnotation(Id.class) != null || "id".equals(property.column);
+                        if (property.id) {
                             property.notNull = true;
                             entity.id = property;
                         }
                         if (fields[i].getDeclaredAnnotation(DefaultValue.class) != null) {
                             property.defaultValue = fields[i].getDeclaredAnnotation(DefaultValue.class).value();
                         }
-                        if(fields[i].getDeclaredAnnotation(Comment.class)!=null){
+                        if (fields[i].getDeclaredAnnotation(Comment.class) != null) {
                             property.comment = fields[i].getDeclaredAnnotation(Comment.class).value();
                         }
                         ForeignKey foreignKey = fields[i].getDeclaredAnnotation(ForeignKey.class);
-                        if(foreignKey!=null){
+                        if (foreignKey != null) {
                             String operation = foreignKey.foreignKeyOption().getOperation();
-                            property.foreignKey = "`"+entityMap.get(foreignKey.table().getName()).tableName+"`(`"+foreignKey.field()+"`) ON DELETE "+operation+" ON UPDATE "+operation;
-                            property.foreignKeyName = "FK_"+entity.tableName+"_"+foreignKey.field()+"_"+entityMap.get(foreignKey.table().getName()).tableName+"_"+property.name;
+                            property.foreignKey = "`" + entityMap.get(foreignKey.table().getName()).tableName + "`(`" + foreignKey.field() + "`) ON DELETE " + operation + " ON UPDATE " + operation;
+                            property.foreignKeyName = "FK_" + entity.tableName + "_" + foreignKey.field() + "_" + entityMap.get(foreignKey.table().getName()).tableName + "_" + property.name;
                             foreignKeyPropertyList.add(property);
                         }
-                        property.field =fields[i];
+                        property.field = fields[i];
                         propertyList.add(property);
                     }
                 }
                 entity.properties = propertyList.toArray(new Property[0]);
                 Field[] fields = new Field[entity.properties.length];
-                for(int i=0;i<entity.properties.length;i++){
+                for (int i = 0; i < entity.properties.length; i++) {
                     fields[i] = entity.properties[i].field;
                 }
                 entity.fields = fields;
-                if(compositFieldList.size()>0){
+                if (compositFieldList.size() > 0) {
                     entity.compositFields = compositFieldList.toArray(new Field[0]);
                 }
-                if(uniqueFieldPropertyList.size()>0){
+                if (uniqueFieldPropertyList.size() > 0) {
                     entity.uniqueKeyProperties = uniqueFieldPropertyList.toArray(new Property[0]);
                 }
-                if(foreignKeyPropertyList.size()>0){
+                if (foreignKeyPropertyList.size() > 0) {
                     entity.foreignKeyProperties = foreignKeyPropertyList.toArray(new Property[0]);
                 }
             }
         }
-        logger.debug("[获取实体信息]实体类个数:{}",entityMap.size());
+        logger.debug("[获取实体信息]实体类个数:{}", entityMap.size());
     }
 
-    /**扫描实体包*/
+    /**
+     * 扫描实体包
+     */
     private static List<Class> scanEntity(String packageName) throws ClassNotFoundException, IOException {
         String packageNamePath = packageName.replace(".", "/");
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
@@ -378,42 +425,44 @@ public class ReflectionUtil {
             logger.warn("[扫描实体类信息为空]前缀:{},包名:{}", QuickDAOConfig.packageNameMap.get(packageName), packageName);
             return classList;
         }
-        Stream<Class> stream = classList.stream().filter((_class)->{
-            if(_class.getAnnotation(Ignore.class)!=null){
-                logger.debug("[忽略实体类]类名:{},该类被@Ignore注解修饰,将跳过该实体类!",_class.getName());
+        Stream<Class> stream = classList.stream().filter((_class) -> {
+            if (_class.getAnnotation(Ignore.class) != null) {
+                logger.debug("[忽略实体类]类名:{},该类被@Ignore注解修饰,将跳过该实体类!", _class.getName());
                 return false;
             }
             boolean result = true;
             //根据类过滤
-            if(QuickDAOConfig.ignoreClassList!=null){
-                if(QuickDAOConfig.ignoreClassList.contains(_class)){
-                    logger.warn("[忽略类名]类名:{}!",_class.getName());
+            if (QuickDAOConfig.ignoreClassList != null) {
+                if (QuickDAOConfig.ignoreClassList.contains(_class)) {
+                    logger.warn("[忽略类名]类名:{}!", _class.getName());
                     result = false;
                 }
             }
             //根据包名过滤
-            if(QuickDAOConfig.ignorePackageNameList!=null){
-                for(String ignorePackageName:QuickDAOConfig.ignorePackageNameList){
-                    if(_class.getName().contains(ignorePackageName)){
-                        logger.warn("[忽略包名]包名:{}类名:{}",ignorePackageName,_class.getName());
+            if (QuickDAOConfig.ignorePackageNameList != null) {
+                for (String ignorePackageName : QuickDAOConfig.ignorePackageNameList) {
+                    if (_class.getName().contains(ignorePackageName)) {
+                        logger.warn("[忽略包名]包名:{}类名:{}", ignorePackageName, _class.getName());
                         result = false;
                     }
                 }
             }
             return result;
         });
-        if(QuickDAOConfig.predicate!=null){
+        if (QuickDAOConfig.predicate != null) {
             stream.filter(QuickDAOConfig.predicate);
         }
         classList = stream.collect(Collectors.toList());
         return classList;
     }
 
-    /**判断是否是实体包类**/
-    private static boolean isCompositProperty(Class _class){
+    /**
+     * 判断是否是实体包类
+     **/
+    private static boolean isCompositProperty(Class _class) {
         Set<String> packageNameSet = QuickDAOConfig.packageNameMap.keySet();
-        for(String packageName:packageNameSet){
-            if(_class.getName().contains(packageName)){
+        for (String packageName : packageNameSet) {
+            if (_class.getName().contains(packageName)) {
                 return true;
             }
         }

@@ -36,8 +36,15 @@ public class QuickDAOTest {
         h2DataSource.setDriverClassName("org.h2.Driver");
         h2DataSource.setUrl("jdbc:h2:"+new File("quickdao_h2.db").getAbsolutePath()+";mode=MYSQL");
 
+        BasicDataSource postgreDataSource = new BasicDataSource();
+        postgreDataSource.setDriverClassName("org.postgresql.Driver");
+        postgreDataSource.setUrl("jdbc:postgresql://106.12.119.127:5432/quickdao");
+        postgreDataSource.setUsername("postgres");
+        postgreDataSource.setPassword("aa1122335");
+
         //各种数据库产品
-        DataSource[] dataSources = {mysqlDataSource,sqliteDataSource,h2DataSource};
+        DataSource[] dataSources = {mysqlDataSource,sqliteDataSource,h2DataSource,postgreDataSource};
+//        DataSource[] dataSources = {h2DataSource};
         Object[][] data = new Object[dataSources.length][1];
         for(int i=0;i<dataSources.length;i++){
             DAO dao = QuickDAO.newInstance().dataSource(dataSources[i])

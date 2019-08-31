@@ -91,7 +91,7 @@ public class JoinConditionTest extends QuickDAOTest {
     @Test
     public void testGetCompositArray(){
         Condition<User> userCondition = dao.query(User.class)
-                .addQuery("uid", "1")
+                .addQuery("uid", 1)
                 .joinTable(Project.class, "project", "key")
                 .done();
         JSONArray array = userCondition.getCompositArray();

@@ -173,6 +173,7 @@ public class DAOTest extends QuickDAOTest{
 
     @Test
     public void testTransaction(){
+        initializePlaylist();
         initializeUserPlaylist();
         //用户订阅播单,播单订阅数加1,同时插入一条用户播单订阅记录
         {
