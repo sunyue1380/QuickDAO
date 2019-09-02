@@ -38,7 +38,7 @@ public class QuickDAOTest {
 
         BasicDataSource postgreDataSource = new BasicDataSource();
         postgreDataSource.setDriverClassName("org.postgresql.Driver");
-        postgreDataSource.setUrl("jdbc:postgresql://106.12.119.127:5432/quickdao");
+        postgreDataSource.setUrl("jdbc:postgresql://116.85.47.17:5432/quickdao");
         postgreDataSource.setUsername("postgres");
         postgreDataSource.setPassword("aa1122335");
 

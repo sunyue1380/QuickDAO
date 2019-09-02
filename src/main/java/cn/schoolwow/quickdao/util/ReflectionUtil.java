@@ -269,16 +269,16 @@ public class ReflectionUtil {
         for (String packageName : keySet) {
             List<Class> classList = scanEntity(packageName);
             for (Class c : classList) {
-                String tableName = null;
-                if ((packageName.length() + c.getSimpleName().length() + 1) == c.getName().length()) {
-                    tableName = StringUtil.Camel2Underline(c.getSimpleName());
+                Entity entity = new Entity();
+                if(c.getDeclaredAnnotation(TableName.class)!=null){
+                    entity.tableName = ((TableName) c.getDeclaredAnnotation(TableName.class)).value();
+                }else if ((packageName.length() + c.getSimpleName().length() + 1) == c.getName().length()) {
+                    entity.tableName = QuickDAOConfig.packageNameMap.get(packageName)+StringUtil.Camel2Underline(c.getSimpleName());
                 } else {
                     String prefix = c.getName().substring(packageName.length() + 1, c.getName().lastIndexOf(".")).replace(".", "_");
-                    tableName = prefix + "@" + StringUtil.Camel2Underline(c.getSimpleName());
+                    entity.tableName = QuickDAOConfig.packageNameMap.get(packageName)+prefix + "@" + StringUtil.Camel2Underline(c.getSimpleName());
                 }
-                Entity entity = new Entity();
                 entity._class = c;
-                entity.tableName = QuickDAOConfig.packageNameMap.get(packageName) + tableName;
                 entityMap.put(c.getName(), entity);
             }
             for (Class c : classList) {
@@ -311,7 +311,11 @@ public class ReflectionUtil {
                             continue;
                         }
                         Property property = new Property();
-                        property.column = StringUtil.Camel2Underline(fields[i].getName());
+                        if (fields[i].getAnnotation(ColumnName.class) != null) {
+                            property.column = fields[i].getAnnotation(ColumnName.class).value();
+                        }else{
+                            property.column = StringUtil.Camel2Underline(fields[i].getName());
+                        }
                         if (fields[i].getAnnotation(ColumnType.class) != null) {
                             property.columnType = fields[i].getAnnotation(ColumnType.class).value();
                         }
