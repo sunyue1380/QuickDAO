@@ -81,6 +81,14 @@ public interface Condition<T> {
     /**
      * 添加自定义查询条件
      *
+     * @param field 指明字段
+     * @param value 字段值
+     */
+    Condition addLikeQuery(String field, Object value);
+
+    /**
+     * 添加自定义查询条件
+     *
      * @param query 子查询条件(<b>主表</b>统一别名为t)
      */
     Condition addQuery(String query);

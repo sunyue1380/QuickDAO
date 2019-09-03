@@ -71,6 +71,7 @@ public class JoinConditionTest extends QuickDAOTest {
         List<PlayList> playListList = dao.query(PlayList.class)
                 .joinTable(UserPlayList.class, "id", "playlist_id")
                 .addQuery("user_id", 1)
+                .orderByDesc("id")
                 .done()
                 .getList();
         logger.info("[关联查询][查询用户id为1所订阅的播单]查询结果:{}", JSON.toJSON(playListList));
@@ -82,6 +83,7 @@ public class JoinConditionTest extends QuickDAOTest {
         PageVo<User> pagingList = dao.query(User.class)
                 .joinTable(Project.class, "project", "key")
                 .done()
+                .orderByDesc("uid")
                 .page(1, 10)
                 .getCompositPagingList();
         logger.info("[分页复杂查询]查询结果:{}", JSON.toJSONString(pagingList));

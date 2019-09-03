@@ -1,5 +1,7 @@
 package cn.schoolwow.quickdao.domain;
 
+import cn.schoolwow.quickdao.annotation.ForeignKey;
+
 import java.lang.reflect.Field;
 
 /**
@@ -15,6 +17,10 @@ public class Property {
      */
     public String columnType;
     /**
+     * 自定义类型
+     */
+    public String customType;
+    /**
      * 属性名
      */
     public String name;
@@ -22,6 +28,10 @@ public class Property {
      * 类型(简单类名)
      */
     public String type;
+    /**
+     * 是否建立索引
+     */
+    public boolean index;
     /**
      * 是否唯一
      */
@@ -45,11 +55,7 @@ public class Property {
     /**
      * 外键关联
      */
-    public String foreignKey;
-    /**
-     * 外键约束名称
-     */
-    public String foreignKeyName;
+    public ForeignKey foreignKey;
     /**
      * Field对象
      */

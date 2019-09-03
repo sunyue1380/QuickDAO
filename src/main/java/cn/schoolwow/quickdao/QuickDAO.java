@@ -23,6 +23,7 @@ public class QuickDAO {
         driverMapping.put("jdbc:sqlite", SQLiteDAO.class);
         driverMapping.put("jdbc:mysql", MySQLDAO.class);
         driverMapping.put("jdbc:postgresql", PostgreDAO.class);
+        driverMapping.put("jdbc:sqlserver", SQLServerDAO.class);
     }
 
     public static QuickDAO newInstance() {

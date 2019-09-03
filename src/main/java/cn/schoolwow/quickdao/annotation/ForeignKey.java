@@ -23,5 +23,5 @@ public @interface ForeignKey {
     /**
      * 外键记录被更新和删除时的操作
      */
-    ForeignKeyOption foreignKeyOption() default ForeignKeyOption.RESTRICT;
+    ForeignKeyOption foreignKeyOption() default ForeignKeyOption.NOACTION;
 }

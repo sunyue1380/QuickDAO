@@ -16,7 +16,7 @@ public class Comment {
   /** 评论内容 */
   private String content;
   /** 视频id */
-  @ForeignKey(table = Video.class,field = "id")
+  @ForeignKey(table = Video.class)
   private long videoId;
 
   public long getId() {

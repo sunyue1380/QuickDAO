@@ -6,6 +6,7 @@ import cn.schoolwow.quickdao.domain.Entity;
 import cn.schoolwow.quickdao.domain.Property;
 import cn.schoolwow.quickdao.helper.SQLHelper;
 import cn.schoolwow.quickdao.syntax.PostgreSyntaxHandler;
+import cn.schoolwow.quickdao.syntax.Syntax;
 import cn.schoolwow.quickdao.util.ReflectionUtil;
 
 import javax.sql.DataSource;
@@ -34,7 +35,7 @@ public class PostgreDAO extends MySQLDAO {
     }
 
     @Override
-    public Entity[] getDatabaseInfo() throws SQLException {
+    protected Entity[] getDatabaseInfo() throws SQLException {
         Connection connection = dataSource.getConnection();
         connection.setAutoCommit(false);
         PreparedStatement tablePs = connection.prepareStatement("select tablename from pg_tables where schemaname='public';");
@@ -70,12 +71,12 @@ public class PostgreDAO extends MySQLDAO {
 
     @Override
     protected void createTable(Entity entity) throws SQLException {
-        StringBuilder createTableBuilder = new StringBuilder("create table if not exists \"" + entity.tableName + "\"(");
+        StringBuilder createTableBuilder = new StringBuilder("create table if not exists " + syntaxHandler.getSyntax(Syntax.Escape,entity.tableName) + "(");
         Property[] properties = entity.properties;
         for (Property property : properties) {
-            createTableBuilder.append("\"" + property.column + "\"");
+            createTableBuilder.append(syntaxHandler.getSyntax(Syntax.Escape,property.column));
             if (property.id) {
-                createTableBuilder.append(" SERIAL ");
+                createTableBuilder.append(" SERIAL unique ");
             } else {
                 createTableBuilder.append(" " + property.columnType + " ");
             }
@@ -92,23 +93,7 @@ public class PostgreDAO extends MySQLDAO {
         String sql = createTableBuilder.toString().replaceAll("\\s+", " ");
         logger.debug("[生成新表]类名:{},表名:{},执行SQL:{}", entity.className, entity.tableName, sql);
         connection.prepareStatement(sql).executeUpdate();
-        createUniqueKey(entity);
-    }
-
-    @Override
-    protected void createUniqueKey(Entity entity) throws SQLException {
-        if (null == entity.uniqueKeyProperties || entity.uniqueKeyProperties.length == 0) {
-            return;
-        }
-        StringBuilder uniqueKeyBuilder = new StringBuilder("alter table \"" + entity.tableName + "\" add constraint \"" + entity.tableName + "_unique_index\" unique (");
-        for (Property property : entity.uniqueKeyProperties) {
-            uniqueKeyBuilder.append("\"" + property.column + "\",");
-        }
-        uniqueKeyBuilder.deleteCharAt(uniqueKeyBuilder.length() - 1);
-        uniqueKeyBuilder.append(");");
-        String uniqueKeySQL = uniqueKeyBuilder.toString().replaceAll("\\s+", " ");
-        logger.debug("[添加唯一性约束]表:{},执行SQL:{}", entity.tableName, uniqueKeySQL);
-        connection.prepareStatement(uniqueKeySQL).executeUpdate();
+        createComment(entity);
     }
 
     @Override
@@ -122,26 +107,17 @@ public class PostgreDAO extends MySQLDAO {
         return result;
     }
 
-    @Override
-    public void autoBuildDatabase() throws SQLException {
-        super.autoBuildDatabase();
-        startTransaction();
-        Set<String> keySet = ReflectionUtil.entityMap.keySet();
-        for(String key:keySet){
-            Entity entity = ReflectionUtil.entityMap.get(key);
-            String sql = "comment on table \""+entity.tableName+"\" is '"+entity.comment+"'";
+    private void createComment(Entity entity) throws SQLException {
+        String sql = "comment on table \""+entity.tableName+"\" is '"+entity.comment+"'";
+        logger.debug("[执行SQL]{}",sql);
+        connection.prepareStatement(sql).executeUpdate();
+        for(Property property:entity.properties){
+            if(property.comment==null){
+                continue;
+            }
+            sql = "comment on column \""+entity.tableName+"\".\""+property.column+"\" is '"+property.comment+"'";
             logger.debug("[执行SQL]{}",sql);
             connection.prepareStatement(sql).executeUpdate();
-            for(Property property:entity.properties){
-                if(property.comment==null){
-                    continue;
-                }
-                sql = "comment on column \""+entity.tableName+"\".\""+property.column+"\" is '"+property.comment+"'";
-                logger.debug("[执行SQL]{}",sql);
-                connection.prepareStatement(sql).executeUpdate();
-            }
         }
-        commit();
-        endTransaction();
     }
 }

@@ -6,6 +6,8 @@ import cn.schoolwow.quickdao.helper.SQLHelper;
 import cn.schoolwow.quickdao.syntax.H2SyntaxHandler;
 
 import javax.sql.DataSource;
+import java.sql.SQLException;
+import java.util.Collection;
 
 public class H2DAO extends MySQLDAO {
     public H2DAO(DataSource dataSource) {
@@ -20,5 +22,10 @@ public class H2DAO extends MySQLDAO {
     @Override
     public <T> Condition<T> query(Class<T> _class) {
         return new H2Condition(_class, dataSource, this, syntaxHandler, sqlHelper);
+    }
+
+    @Override
+    protected void createForeignKey(Collection entityList) throws SQLException {
+
     }
 }

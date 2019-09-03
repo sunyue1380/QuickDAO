@@ -7,6 +7,7 @@ public enum ForeignKeyOption {
     RESTRICT("RESTRICT"),
     NOACTION("NO ACTION"),
     SETNULL("SET NULL"),
+    SETDEFAULT("SET DEFAULT"),
     CASCADE("CASCADE");
 
     private String operation;

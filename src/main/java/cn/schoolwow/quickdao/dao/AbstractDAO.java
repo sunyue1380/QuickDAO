@@ -1,6 +1,7 @@
 package cn.schoolwow.quickdao.dao;
 
 import cn.schoolwow.quickdao.condition.Condition;
+import cn.schoolwow.quickdao.condition.SQLServerCondition;
 import cn.schoolwow.quickdao.domain.Entity;
 import cn.schoolwow.quickdao.domain.Property;
 import cn.schoolwow.quickdao.helper.SQLHelper;
@@ -41,19 +42,19 @@ public abstract class AbstractDAO implements DAO {
 
     public AbstractDAO(DataSource dataSource) {
         this.dataSource = dataSource;
-        fieldMapping.put("string", "VARCHAR(255)");
-        fieldMapping.put("boolean", "BOOLEAN");
-        fieldMapping.put("byte", "TINYINT");
-        fieldMapping.put("char", "char(4)");
-        fieldMapping.put("short", "SMALLINT");
-        fieldMapping.put("int", "INTEGER");
-        fieldMapping.put("integer", "INTEGER(11)");
-        fieldMapping.put("long", "BIGINT");
-        fieldMapping.put("float", "FLOAT(4,2)");
-        fieldMapping.put("double", "DOUBLE(5,2)");
-        fieldMapping.put("date", "DATETIME");
-        fieldMapping.put("time", "TIME");
-        fieldMapping.put("timestamp", "TIMESTAMP");
+        fieldMapping.put("string", "varchar(255)");
+        fieldMapping.put("boolean", "boolean");
+        fieldMapping.put("byte", "tinyint");
+        fieldMapping.put("char", "char");
+        fieldMapping.put("short", "smallint");
+        fieldMapping.put("int", "integer");
+        fieldMapping.put("integer", "integer");
+        fieldMapping.put("long", "bigint");
+        fieldMapping.put("float", "float");
+        fieldMapping.put("double", "double");
+        fieldMapping.put("date", "datetime");
+        fieldMapping.put("time", "time");
+        fieldMapping.put("timestamp", "timestamp");
     }
 
     @Override
@@ -174,10 +175,14 @@ public abstract class AbstractDAO implements DAO {
                     logger.debug("[根据唯一性约束更新]执行SQL:{}", ReflectionUtil.setValueWithUpdateByUniqueKey(ps, instance, updateByUniqueKey));
                     effect = ps.executeUpdate();
                     //获取id并设置
-                    Condition condition = getUniqueCondition(instance);
-                    List<Long> ids = condition.getValueList(Long.class, entity.id.name);
-                    if (ids.size() > 0) {
-                        entity.id.field.setLong(instance, ids.get(0));
+                    if(startTranscation&&this instanceof SQLServerDAO){
+                        //TODO SQL Server 开启事务时该方法以下代码会导致阻塞,原因不明
+                    }else{
+                        Condition condition = getUniqueCondition(instance);
+                        List<Long> ids = condition.getValueList(Long.class, entity.id.name);
+                        if (ids.size() > 0) {
+                            entity.id.field.setLong(instance, ids.get(0));
+                        }
                     }
                 } else if (ReflectionUtil.hasId(instance)) {
                     //根据id更新
@@ -443,7 +448,10 @@ public abstract class AbstractDAO implements DAO {
         Entity entity = ReflectionUtil.entityMap.get(_class.getName());
         startTransaction();
         try {
+            updateColumnType();
             createTable(entity);
+            createIndex(entity);
+            createUniqueKey(entity);
             commit();
         } catch (SQLException e) {
             e.printStackTrace();
@@ -532,9 +540,48 @@ public abstract class AbstractDAO implements DAO {
     protected abstract void compareEntityDatabase(Entity entity, Entity dbEntity) throws SQLException;
 
     /**
+     * 创建索引
+     */
+    protected void createIndex(Entity entity) throws SQLException{
+        if (null == entity.indexProperties || entity.indexProperties.length == 0) {
+            return;
+        }
+        String indexName = entity.tableName + "_index";
+        if (isConstraintExist(indexName)) {
+            return;
+        }
+        StringBuilder indexBuilder = new StringBuilder("create index " + syntaxHandler.getSyntax(Syntax.Escape,indexName)+" on " + syntaxHandler.getSyntax(Syntax.Escape,entity.tableName) + " (");
+        for (Property property : entity.indexProperties) {
+            indexBuilder.append(syntaxHandler.getSyntax(Syntax.Escape,property.column)+",");
+        }
+        indexBuilder.deleteCharAt(indexBuilder.length() - 1);
+        indexBuilder.append(");");
+        String indexSQL = indexBuilder.toString().replaceAll("\\s+", " ");
+        logger.debug("[添加索引]表:{},执行SQL:{}", entity.tableName, indexSQL);
+        connection.prepareStatement(indexSQL).executeUpdate();
+    }
+
+    /**
      * 创建唯一索引
      */
-    protected abstract void createUniqueKey(Entity entity) throws SQLException;
+    protected void createUniqueKey(Entity entity) throws SQLException{
+        if (null == entity.uniqueKeyProperties || entity.uniqueKeyProperties.length == 0) {
+            return;
+        }
+        String uniqueKeyIndexName = entity.tableName + "_unique_index";
+        if (isConstraintExist(uniqueKeyIndexName)) {
+            return;
+        }
+        StringBuilder uniqueKeyBuilder = new StringBuilder("create unique index " + syntaxHandler.getSyntax(Syntax.Escape,uniqueKeyIndexName)+" on " + syntaxHandler.getSyntax(Syntax.Escape,entity.tableName) + " (");
+        for (Property property : entity.uniqueKeyProperties) {
+            uniqueKeyBuilder.append(syntaxHandler.getSyntax(Syntax.Escape,property.column) + ",");
+        }
+        uniqueKeyBuilder.deleteCharAt(uniqueKeyBuilder.length() - 1);
+        uniqueKeyBuilder.append(");");
+        String uniqueKeySQL = uniqueKeyBuilder.toString().replaceAll("\\s+", " ");
+        logger.debug("[添加唯一性约束]表:{},执行SQL:{}", entity.tableName, uniqueKeySQL);
+        connection.prepareStatement(uniqueKeySQL).executeUpdate();
+    }
 
     /**
      * 创建外键约束
@@ -550,20 +597,13 @@ public abstract class AbstractDAO implements DAO {
         if (!QuickDAOConfig.autoCreateTable) {
             return;
         }
-        Collection<Entity> entityList = ReflectionUtil.entityMap.values();
-        for (Entity entity : entityList) {
-            Property[] properties = entity.properties;
-            for (Property property : properties) {
-                if (property.columnType == null) {
-                    property.columnType = fieldMapping.get(property.type);
-                }
-            }
-        }
+        updateColumnType();
         //对比实体类信息与数据库信息
         Entity[] dbEntityList = getDatabaseInfo();
         logger.debug("[获取数据库信息]数据库表个数:{}", dbEntityList.length);
 
         startTransaction();
+        Collection<Entity> entityList = ReflectionUtil.entityMap.values();
         for (Entity entity : entityList) {
             boolean entityExist = false;
             for (Entity dbEntity : dbEntityList) {
@@ -577,6 +617,8 @@ public abstract class AbstractDAO implements DAO {
             if (!entityExist) {
                 //新增数据库表
                 createTable(entity);
+                createIndex(entity);
+                createUniqueKey(entity);
             }
         }
         if (QuickDAOConfig.openForeignKey) {
@@ -584,5 +626,19 @@ public abstract class AbstractDAO implements DAO {
         }
         commit();
         endTransaction();
+    }
+
+    /**更新属性列类型*/
+    private void updateColumnType(){
+        Collection<Entity> entityList = ReflectionUtil.entityMap.values();
+        for (Entity entity : entityList) {
+            Property[] properties = entity.properties;
+            for (Property property : properties) {
+                property.columnType = property.customType;
+                if (property.columnType == null) {
+                    property.columnType = fieldMapping.get(property.type);
+                }
+            }
+        }
     }
 }

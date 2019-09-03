@@ -134,6 +134,26 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
     }
 
     @Override
+    public Condition addLikeQuery(String field, Object value) {
+        if (value == null || value.toString().equals("")) {
+            return this;
+        }
+        query.whereBuilder.append("(t." + query.syntaxHandler.getSyntax(Syntax.Escape, StringUtil.Camel2Underline(field)) + " like ?) and ");
+        boolean hasContains = false;
+        for (String pattern : patterns) {
+            if (((String) value).contains(pattern)) {
+                query.parameterList.add(value);
+                hasContains = true;
+                break;
+            }
+        }
+        if (!hasContains) {
+            query.parameterList.add("%" + value + "%");
+        }
+        return this;
+    }
+
+    @Override
     public Condition addQuery(String query) {
         this.query.whereBuilder.append("(" + query + ") and ");
         return this;
@@ -145,7 +165,7 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
             return this;
         }
         if (value instanceof String) {
-            addQuery(field, "like", value);
+            addLikeQuery(field,value);
         } else {
             addQuery(field, "=", value);
         }
@@ -154,23 +174,8 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
 
     @Override
     public Condition addQuery(String field, String operator, Object value) {
-        if (value instanceof String) {
-            query.whereBuilder.append("(t." + query.syntaxHandler.getSyntax(Syntax.Escape, StringUtil.Camel2Underline(field)) + " " + operator + " ?) and ");
-            boolean hasContains = false;
-            for (String pattern : patterns) {
-                if (((String) value).contains(pattern)) {
-                    query.parameterList.add(value);
-                    hasContains = true;
-                    break;
-                }
-            }
-            if (!hasContains) {
-                query.parameterList.add("%" + value + "%");
-            }
-        } else {
-            query.whereBuilder.append("(t." + query.syntaxHandler.getSyntax(Syntax.Escape, StringUtil.Camel2Underline(field)) + " " + operator + " ?) and ");
-            query.parameterList.add(value);
-        }
+        query.whereBuilder.append("(t." + query.syntaxHandler.getSyntax(Syntax.Escape, StringUtil.Camel2Underline(field)) + " " + operator + " ?) and ");
+        query.parameterList.add(value);
         return this;
     }
 
@@ -798,10 +803,10 @@ public class AbstractCondition<T> implements Condition<T>, Serializable {
             Entity entity = ReflectionUtil.entityMap.get(subQuery.className);
             if (subQuery.parentSubQuery == null) {
                 //如果parentSubCondition为空,则为主表关联子表
-                sqlBuilder.append(subQuery.join + " " + query.syntaxHandler.getSyntax(Syntax.Escape, entity.tableName) + " as " + subQuery.tableAliasName + " on t." + subQuery.primaryField + " = " + subQuery.tableAliasName + "." + subQuery.joinTableField + " ");
+                sqlBuilder.append(subQuery.join + " " + query.syntaxHandler.getSyntax(Syntax.Escape, entity.tableName) + " as " + subQuery.tableAliasName + " on t." + query.syntaxHandler.getSyntax(Syntax.Escape,subQuery.primaryField) + " = " + subQuery.tableAliasName + "." + query.syntaxHandler.getSyntax(Syntax.Escape,subQuery.joinTableField) + " ");
             } else {
                 //如果parentSubCondition不为空,则为子表关联子表
-                sqlBuilder.append(subQuery.join + " " + query.syntaxHandler.getSyntax(Syntax.Escape, entity.tableName) + " as " + subQuery.tableAliasName + " on " + subQuery.tableAliasName + "." + subQuery.joinTableField + " = " + subQuery.parentSubQuery.tableAliasName + "." + subQuery.primaryField + " ");
+                sqlBuilder.append(subQuery.join + " " + query.syntaxHandler.getSyntax(Syntax.Escape, entity.tableName) + " as " + subQuery.tableAliasName + " on " + subQuery.tableAliasName + "." + query.syntaxHandler.getSyntax(Syntax.Escape,subQuery.joinTableField) + " = " + subQuery.parentSubQuery.tableAliasName + "." + query.syntaxHandler.getSyntax(Syntax.Escape,subQuery.primaryField) + " ");
             }
         }
     }

@@ -1,9 +1,7 @@
 package cn.schoolwow.quickdao.entity.logic;
 
-import cn.schoolwow.quickdao.annotation.ColumnType;
+import cn.schoolwow.quickdao.annotation.*;
 import cn.schoolwow.quickdao.annotation.Comment;
-import cn.schoolwow.quickdao.annotation.NotNull;
-import cn.schoolwow.quickdao.annotation.Unique;
 
 import java.util.Date;
 
@@ -18,6 +16,7 @@ public class PlayList {
   private String tv;
   /** 播单专辑页 */
   @Unique
+  @Index
   private String url;
   /** 播单类型 (0-综艺 1-剧集 2-其他) */
   private int type;

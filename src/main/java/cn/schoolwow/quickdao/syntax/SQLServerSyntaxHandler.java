@@ -1,6 +1,6 @@
 package cn.schoolwow.quickdao.syntax;
 
-public class PostgreSyntaxHandler extends AbstractSyntaxHandler {
+public class SQLServerSyntaxHandler extends PostgreSyntaxHandler{
     @Override
     public String getSyntax(Syntax syntax, Object... values) {
         switch (syntax) {

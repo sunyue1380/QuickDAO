@@ -13,7 +13,7 @@ public class Dictionary {
     @NotNull
     @Unique
     private String key;
-    @ColumnType("varchar(10240)")
+    @ColumnType("varchar(8000)")
     @NotNull
     private String value;
     private Date updateTime;

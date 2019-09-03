@@ -7,6 +7,7 @@ import cn.schoolwow.quickdao.domain.Property;
 import cn.schoolwow.quickdao.helper.SQLHelper;
 import cn.schoolwow.quickdao.syntax.MySQLSyntaxHandler;
 import cn.schoolwow.quickdao.syntax.Syntax;
+import cn.schoolwow.quickdao.util.ReflectionUtil;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -21,7 +22,11 @@ public class MySQLDAO extends AbstractDAO {
 
     public MySQLDAO(DataSource dataSource) {
         super(dataSource);
+        fieldMapping.put("char", "char(4)");
+        fieldMapping.put("integer", "integer(11)");
         fieldMapping.put("long", "INTEGER");
+        fieldMapping.put("float", "float(4,2)");
+        fieldMapping.put("double", "double(5,2)");
         syntaxHandler = new MySQLSyntaxHandler();
         sqlHelper = new SQLHelper(syntaxHandler);
     }
@@ -43,7 +48,7 @@ public class MySQLDAO extends AbstractDAO {
             entity.tableName = tableRs.getString(1);
 
             List<Property> propertyList = new ArrayList<>();
-            PreparedStatement propertyPs = connection.prepareStatement("show columns from `" + tableRs.getString(1) + "`");
+            PreparedStatement propertyPs = connection.prepareStatement("show columns from " + syntaxHandler.getSyntax(Syntax.Escape,tableRs.getString(1)));
             ResultSet propertiesRs = propertyPs.executeQuery();
             while (propertiesRs.next()) {
                 Property property = new Property();
@@ -68,10 +73,10 @@ public class MySQLDAO extends AbstractDAO {
 
     @Override
     protected void createTable(Entity entity) throws SQLException {
-        StringBuilder createTableBuilder = new StringBuilder("create table if not exists `" + entity.tableName + "`(");
+        StringBuilder createTableBuilder = new StringBuilder("create table if not exists " + syntaxHandler.getSyntax(Syntax.Escape,entity.tableName) + "(");
         Property[] properties = entity.properties;
         for (Property property : properties) {
-            createTableBuilder.append("`" + property.column + "` " + property.columnType);
+            createTableBuilder.append(syntaxHandler.getSyntax(Syntax.Escape,property.column) + " " + property.columnType);
             if (property.id) {
                 createTableBuilder.append(" primary key " + syntaxHandler.getSyntax(Syntax.AutoIncrement));
             } else {
@@ -83,19 +88,18 @@ public class MySQLDAO extends AbstractDAO {
                 }
             }
             if (null != property.comment) {
-                createTableBuilder.append(" " + syntaxHandler.getSyntax(Syntax.Comment, property.comment));
+                createTableBuilder.append(" "+syntaxHandler.getSyntax(Syntax.Comment, property.comment));
             }
             createTableBuilder.append(",");
         }
         createTableBuilder.deleteCharAt(createTableBuilder.length() - 1);
         createTableBuilder.append(")");
         if (null != entity.comment) {
-            createTableBuilder.append("comment='" + entity.comment + "';");
+            createTableBuilder.append(syntaxHandler.getSyntax(Syntax.Comment, entity.comment));
         }
         String sql = createTableBuilder.toString().replaceAll("\\s+", " ");
         logger.debug("[生成新表]类名:{},表名:{},执行SQL:{},", entity.className, entity.tableName, sql);
         connection.prepareStatement(sql).executeUpdate();
-        createUniqueKey(entity);
     }
 
     @Override
@@ -112,7 +116,7 @@ public class MySQLDAO extends AbstractDAO {
             }
             if (!columnExist) {
                 StringBuilder addColumnBuilder = new StringBuilder();
-                addColumnBuilder.append("alter table `" + entity.tableName + "` add column " + "`" + entityProperty.column + "` " + entityProperty.columnType + " ");
+                addColumnBuilder.append("alter table " + syntaxHandler.getSyntax(Syntax.Escape,entity.tableName) + " add column " + syntaxHandler.getSyntax(Syntax.Escape,entityProperty.column) + " " + entityProperty.columnType + " ");
                 if (null != entityProperty.defaultValue) {
                     addColumnBuilder.append(" default " + entityProperty.defaultValue);
                 }
@@ -120,7 +124,8 @@ public class MySQLDAO extends AbstractDAO {
                     addColumnBuilder.append(" " + syntaxHandler.getSyntax(Syntax.Comment, entityProperty.comment));
                 }
                 if (null != entityProperty.foreignKey) {
-                    addColumnBuilder.append(",constraint `" + entityProperty.foreignKeyName + "` foreign key(`" + entityProperty.column + "`) references " + entityProperty.foreignKey);
+                    String foreignKeyName = "FK_" + entity.tableName + "_" + entityProperty.foreignKey.field() + "_" + ReflectionUtil.entityMap.get(entityProperty.foreignKey.table().getName()).tableName + "_" + entityProperty.name;
+                    addColumnBuilder.append(",constraint " + syntaxHandler.getSyntax(Syntax.Escape,foreignKeyName) + " foreign key(" + syntaxHandler.getSyntax(Syntax.Escape,entityProperty.column) + ") references " + entityProperty.foreignKey);
                 }
                 addColumnBuilder.append(";");
                 String sql = addColumnBuilder.toString().replaceAll("\\s+", " ");
@@ -134,35 +139,21 @@ public class MySQLDAO extends AbstractDAO {
     }
 
     @Override
-    protected void createUniqueKey(Entity entity) throws SQLException {
-        if (null == entity.uniqueKeyProperties || entity.uniqueKeyProperties.length == 0) {
-            return;
-        }
-        String uniqueKeyIndexName = entity.tableName + "_unique_index";
-        if (isConstraintExist(uniqueKeyIndexName)) {
-            return;
-        }
-        StringBuilder uniqueKeyBuilder = new StringBuilder("alter table `" + entity.tableName + "` add unique index `" + uniqueKeyIndexName + "` (");
-        for (Property property : entity.uniqueKeyProperties) {
-            uniqueKeyBuilder.append("`" + property.column + "`,");
-        }
-        uniqueKeyBuilder.deleteCharAt(uniqueKeyBuilder.length() - 1);
-        uniqueKeyBuilder.append(");");
-        String uniqueKeySQL = uniqueKeyBuilder.toString().replaceAll("\\s+", " ");
-        logger.debug("[添加唯一性约束]表:{},执行SQL:{}", entity.tableName, uniqueKeySQL);
-        connection.prepareStatement(uniqueKeySQL).executeUpdate();
-    }
-
-    @Override
     protected void createForeignKey(Collection<Entity> entityList) throws SQLException {
         for (Entity entity : entityList) {
             Property[] foreignKeyProperties = entity.foreignKeyProperties;
+            if(null==foreignKeyProperties){
+                continue;
+            }
             for (Property property : foreignKeyProperties) {
-                if (isConstraintExist(property.foreignKeyName)) {
+                String operation = property.foreignKey.foreignKeyOption().getOperation();
+                String reference = syntaxHandler.getSyntax(Syntax.Escape,ReflectionUtil.entityMap.get(property.foreignKey.table().getName()).tableName) + "(" + syntaxHandler.getSyntax(Syntax.Escape,property.foreignKey.field()) + ") ON DELETE " + operation + " ON UPDATE " + operation;
+                String foreignKeyName = "FK_" + entity.tableName + "_" + property.foreignKey.field() + "_" + ReflectionUtil.entityMap.get(property.foreignKey.table().getName()).tableName + "_" + property.name;
+                if (isConstraintExist(foreignKeyName)) {
                     continue;
                 }
-                String foreignKeySQL = "alter table " + syntaxHandler.getSyntax(Syntax.Escape, entity.tableName) + " add constraint " + syntaxHandler.getSyntax(Syntax.Escape, property.foreignKeyName) + " foreign key(" + syntaxHandler.getSyntax(Syntax.Escape, property.column) + ") references " + property.foreignKey;
-                logger.info("[生成外键约束]约束名:{},执行SQL:{}", property.foreignKeyName, foreignKeySQL);
+                String foreignKeySQL = "alter table " + syntaxHandler.getSyntax(Syntax.Escape, entity.tableName) + " add constraint " + syntaxHandler.getSyntax(Syntax.Escape, foreignKeyName) + " foreign key(" + syntaxHandler.getSyntax(Syntax.Escape, property.column) + ") references " + reference;
+                logger.info("[生成外键约束]约束名:{},执行SQL:{}", foreignKeyName, foreignKeySQL);
                 connection.prepareStatement(foreignKeySQL).executeUpdate();
             }
         }

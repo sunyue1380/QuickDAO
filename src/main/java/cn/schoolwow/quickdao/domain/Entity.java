@@ -33,6 +33,10 @@ public class Entity {
     /**
      * 唯一约束字段
      */
+    public Property[] indexProperties;
+    /**
+     * 唯一约束字段
+     */
     public Property[] uniqueKeyProperties;
     /**
      * 外键约束字段

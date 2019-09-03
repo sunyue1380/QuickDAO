@@ -290,6 +290,8 @@ public class ReflectionUtil {
                 }
                 /**属性列表*/
                 List<Property> propertyList = new ArrayList<>();
+                /**索引属性列表*/
+                List<Property> indexPropertyList = new ArrayList<>();
                 /**唯一约束属性列表*/
                 List<Property> uniqueFieldPropertyList = new ArrayList<>();
                 /**外键约束属性列表*/
@@ -317,10 +319,14 @@ public class ReflectionUtil {
                             property.column = StringUtil.Camel2Underline(fields[i].getName());
                         }
                         if (fields[i].getAnnotation(ColumnType.class) != null) {
-                            property.columnType = fields[i].getAnnotation(ColumnType.class).value();
+                            property.customType = fields[i].getAnnotation(ColumnType.class).value();
                         }
                         property.name = fields[i].getName();
                         property.type = fields[i].getType().getSimpleName().toLowerCase();
+                        property.index = fields[i].getDeclaredAnnotation(Index.class)!=null;
+                        if(property.index){
+                            indexPropertyList.add(property);
+                        }
                         property.unique = fields[i].getDeclaredAnnotation(Unique.class) != null;
                         if (property.unique) {
                             uniqueFieldPropertyList.add(property);
@@ -337,11 +343,8 @@ public class ReflectionUtil {
                         if (fields[i].getDeclaredAnnotation(Comment.class) != null) {
                             property.comment = fields[i].getDeclaredAnnotation(Comment.class).value();
                         }
-                        ForeignKey foreignKey = fields[i].getDeclaredAnnotation(ForeignKey.class);
-                        if (foreignKey != null) {
-                            String operation = foreignKey.foreignKeyOption().getOperation();
-                            property.foreignKey = "`" + entityMap.get(foreignKey.table().getName()).tableName + "`(`" + foreignKey.field() + "`) ON DELETE " + operation + " ON UPDATE " + operation;
-                            property.foreignKeyName = "FK_" + entity.tableName + "_" + foreignKey.field() + "_" + entityMap.get(foreignKey.table().getName()).tableName + "_" + property.name;
+                        property.foreignKey = fields[i].getDeclaredAnnotation(ForeignKey.class);
+                        if (property.foreignKey != null) {
                             foreignKeyPropertyList.add(property);
                         }
                         property.field = fields[i];
@@ -356,6 +359,9 @@ public class ReflectionUtil {
                 entity.fields = fields;
                 if (compositFieldList.size() > 0) {
                     entity.compositFields = compositFieldList.toArray(new Field[0]);
+                }
+                if (indexPropertyList.size() > 0) {
+                    entity.indexProperties = indexPropertyList.toArray(new Property[0]);
                 }
                 if (uniqueFieldPropertyList.size() > 0) {
                     entity.uniqueKeyProperties = uniqueFieldPropertyList.toArray(new Property[0]);

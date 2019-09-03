@@ -35,74 +35,6 @@ public class SQLiteDAO extends MySQLDAO {
         return new SQLiteCondition(_class, dataSource, this, syntaxHandler, sqlHelper);
     }
 
-    /**
-     * 创建新表
-     */
-    @Override
-    protected void createTable(Entity entity) throws SQLException {
-        StringBuilder createTableBuilder = new StringBuilder("create table `" + entity.tableName + "`(");
-        if (null != entity.comment) {
-            createTableBuilder.append("/*" + entity.comment + "*/");
-        }
-        Property[] properties = entity.properties;
-        for (Property property : properties) {
-            createTableBuilder.append("`" + property.column + "` " + property.columnType);
-            if (property.id) {
-                createTableBuilder.append(" primary key " + syntaxHandler.getSyntax(Syntax.AutoIncrement));
-            } else {
-                if (null != property.defaultValue) {
-                    createTableBuilder.append(" default '" + property.defaultValue + "'");
-                }
-                if (property.notNull) {
-                    createTableBuilder.append(" not null ");
-                }
-            }
-            if (null != property.comment) {
-                createTableBuilder.append(" " + syntaxHandler.getSyntax(Syntax.Comment, property.comment));
-            }
-            createTableBuilder.append(",");
-        }
-        if (QuickDAOConfig.openForeignKey) {
-            Property[] foreignKeyProperties = entity.foreignKeyProperties;
-            for (Property property : foreignKeyProperties) {
-                createTableBuilder.append("foreign key(`" + property.column + "`) references " + property.foreignKey + ",");
-            }
-            //手动开启外键约束
-            connection.prepareStatement("PRAGMA foreign_keys = ON;").executeUpdate();
-        }
-        createTableBuilder.deleteCharAt(createTableBuilder.length() - 1);
-        createTableBuilder.append(")");
-        String sql = createTableBuilder.toString().replaceAll("\\s+", " ");
-        logger.debug("[生成新表]类名:{},表名:{},执行sql:{}", entity.className, entity.tableName, sql);
-        connection.prepareStatement(sql).executeUpdate();
-        createUniqueKey(entity);
-    }
-
-    /**
-     * 创建唯一索引
-     */
-    @Override
-    protected void createUniqueKey(Entity entity) throws SQLException {
-        Property[] uniqueKeyProperties = entity.uniqueKeyProperties;
-        if (null == uniqueKeyProperties || uniqueKeyProperties.length == 0) {
-            return;
-        }
-        StringBuilder uniqueKeyBuilder = new StringBuilder("create unique index `" + entity.tableName + "_unique_index` on `" + entity.tableName + "` (");
-        for (Property property : uniqueKeyProperties) {
-            uniqueKeyBuilder.append("`" + property.column + "`,");
-        }
-        uniqueKeyBuilder.deleteCharAt(uniqueKeyBuilder.length() - 1);
-        uniqueKeyBuilder.append(");");
-        String uniqueKeySQL = uniqueKeyBuilder.toString().replaceAll("\\s+", " ");
-        logger.debug("[添加唯一性约束]表:{},执行SQL:{}", entity.tableName, uniqueKeySQL);
-        connection.prepareStatement(uniqueKeySQL).executeUpdate();
-    }
-
-    @Override
-    protected void createForeignKey(Collection entityList) throws SQLException {
-
-    }
-
     @Override
     protected Entity[] getDatabaseInfo() throws SQLException {
         Connection connection = dataSource.getConnection();
@@ -136,5 +68,63 @@ public class SQLiteDAO extends MySQLDAO {
         tablePs.close();
         connection.close();
         return entityList.toArray(new Entity[0]);
+    }
+
+    /**
+     * 创建新表
+     */
+    @Override
+    protected void createTable(Entity entity) throws SQLException {
+        StringBuilder createTableBuilder = new StringBuilder("create table " + syntaxHandler.getSyntax(Syntax.Escape,entity.tableName) + "(");
+        Property[] properties = entity.properties;
+        for (Property property : properties) {
+            createTableBuilder.append(syntaxHandler.getSyntax(Syntax.Escape,property.column) + " " + property.columnType);
+            if (property.id) {
+                createTableBuilder.append(" primary key " + syntaxHandler.getSyntax(Syntax.AutoIncrement));
+            } else {
+                if (null != property.defaultValue) {
+                    createTableBuilder.append(" default '" + property.defaultValue + "'");
+                }
+                if (property.notNull) {
+                    createTableBuilder.append(" not null ");
+                }
+            }
+            if (null != property.comment) {
+                createTableBuilder.append(" " + syntaxHandler.getSyntax(Syntax.Comment, property.comment));
+            }
+            createTableBuilder.append(",");
+        }
+        if (QuickDAOConfig.openForeignKey) {
+            Property[] foreignKeyProperties = entity.foreignKeyProperties;
+            for (Property property : foreignKeyProperties) {
+                createTableBuilder.append("foreign key(" + syntaxHandler.getSyntax(Syntax.Escape,property.column) + ") references " + property.foreignKey + ",");
+            }
+            //手动开启外键约束
+            connection.prepareStatement("PRAGMA foreign_keys = ON;").executeUpdate();
+        }
+        createTableBuilder.deleteCharAt(createTableBuilder.length() - 1);
+        if (null != entity.comment) {
+            createTableBuilder.append(syntaxHandler.getSyntax(Syntax.Comment,entity.comment));
+        }
+        createTableBuilder.append(")");
+        String sql = createTableBuilder.toString().replaceAll("\\s+", " ");
+        logger.debug("[生成新表]类名:{},表名:{},执行sql:{}", entity.className, entity.tableName, sql);
+        connection.prepareStatement(sql).executeUpdate();
+    }
+
+    @Override
+    protected void createForeignKey(Collection entityList) throws SQLException {
+
+    }
+
+    @Override
+    protected boolean isConstraintExist(String constraintName) throws SQLException {
+        ResultSet resultSet = connection.prepareStatement("select count(1) from sqlite_master where type = 'index' and name = '"+constraintName+"'").executeQuery();
+        boolean result = false;
+        if (resultSet.next()) {
+            result = resultSet.getInt(1) > 0;
+        }
+        resultSet.close();
+        return result;
     }
 }
