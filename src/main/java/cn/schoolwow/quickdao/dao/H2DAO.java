@@ -6,8 +6,8 @@ import cn.schoolwow.quickdao.helper.SQLHelper;
 import cn.schoolwow.quickdao.syntax.H2SyntaxHandler;
 
 import javax.sql.DataSource;
+import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Collection;
 
 public class H2DAO extends MySQLDAO {
     public H2DAO(DataSource dataSource) {
@@ -25,7 +25,20 @@ public class H2DAO extends MySQLDAO {
     }
 
     @Override
-    protected void createForeignKey(Collection entityList) throws SQLException {
+    protected void createForeignKey() throws SQLException {
 
+    }
+
+    @Override
+    protected boolean isIndexExists(String tableName,String indexName) throws SQLException {
+        String indexExistsSQL = "select count(1) from information_schema.CONSTRAINTS where CONSTRAINT_NAME = '"+indexName+"'";
+        logger.debug("[查看索引]表名:{},执行SQL:{}",tableName,indexExistsSQL);
+        ResultSet resultSet = connection.prepareStatement(indexExistsSQL).executeQuery();
+        boolean result = false;
+        if (resultSet.next()) {
+            result = resultSet.getInt(1) > 0;
+        }
+        resultSet.close();
+        return result;
     }
 }

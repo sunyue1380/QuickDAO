@@ -2,6 +2,7 @@ package cn.schoolwow.quickdao.helper;
 
 import cn.schoolwow.quickdao.domain.Entity;
 import cn.schoolwow.quickdao.domain.Property;
+import cn.schoolwow.quickdao.syntax.SQLServerSyntaxHandler;
 import cn.schoolwow.quickdao.syntax.Syntax;
 import cn.schoolwow.quickdao.syntax.SyntaxHandler;
 import cn.schoolwow.quickdao.util.ReflectionUtil;
@@ -148,6 +149,23 @@ public class SQLHelper implements Serializable {
             }
             builder.deleteCharAt(builder.length() - 1);
             builder.append(" where " + syntaxHandler.getSyntax(Syntax.Escape, entity.id.name) + " = ?");
+            sqlCache.put(key, builder.toString());
+        }
+        return sqlCache.get(key);
+    }
+
+    /**
+     * 删除表
+     */
+    public String dropTable(Class _class) {
+        String key = "dropTable_" + _class.getName();
+        if (!sqlCache.containsKey(key)) {
+            StringBuilder builder = new StringBuilder();
+            builder.append("drop table");
+            if(!(syntaxHandler instanceof SQLServerSyntaxHandler)){
+                builder.append(" if exists");
+            }
+            builder.append(" "+syntaxHandler.getSyntax(Syntax.Escape, ReflectionUtil.entityMap.get(_class.getName()).tableName));
             sqlCache.put(key, builder.toString());
         }
         return sqlCache.get(key);

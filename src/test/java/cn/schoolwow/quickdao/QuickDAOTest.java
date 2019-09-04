@@ -43,14 +43,14 @@ public class QuickDAOTest {
         postgreDataSource.setPassword("aa1122335");
 
         BasicDataSource sqlServerDataSource = new BasicDataSource();
-        sqlServerDataSource.setDriverClassName("org.postgresql.Driver");
+        sqlServerDataSource.setDriverClassName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
         sqlServerDataSource.setUrl("jdbc:sqlserver://127.0.0.1:1433;databaseName=quickdao");
         sqlServerDataSource.setUsername("sa");
         sqlServerDataSource.setPassword("aa1122335");
 
         //各种数据库产品
         DataSource[] dataSources = {mysqlDataSource,sqliteDataSource,h2DataSource,postgreDataSource,sqlServerDataSource};
-//        DataSource[] dataSources = {h2DataSource};
+//        DataSource[] dataSources = {mysqlDataSource};
         Object[][] data = new Object[dataSources.length][1];
         for(int i=0;i<dataSources.length;i++){
             DAO dao = QuickDAO.newInstance().dataSource(dataSources[i])

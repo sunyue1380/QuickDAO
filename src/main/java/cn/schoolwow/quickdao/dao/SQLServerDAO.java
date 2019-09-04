@@ -7,7 +7,6 @@ import cn.schoolwow.quickdao.domain.Property;
 import cn.schoolwow.quickdao.helper.SQLHelper;
 import cn.schoolwow.quickdao.syntax.SQLServerSyntaxHandler;
 import cn.schoolwow.quickdao.syntax.Syntax;
-import cn.schoolwow.quickdao.util.ReflectionUtil;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -31,26 +30,6 @@ public class SQLServerDAO extends MySQLDAO{
     @Override
     public <T> Condition<T> query(Class<T> _class) {
         return new SQLServerCondition(_class, dataSource, this, syntaxHandler, sqlHelper);
-    }
-
-    @Override
-    public void drop(Class _class) {
-        Entity entity = ReflectionUtil.entityMap.get(_class.getName());
-        String sql = "drop table " + syntaxHandler.getSyntax(Syntax.Escape, entity.tableName);
-        logger.debug("[删除表=>{}]执行SQL:{}", _class.getSimpleName(), sql);
-        Connection connection = null;
-        try {
-            connection = getConnection();
-            connection.prepareStatement(sql).execute();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        } finally {
-            try {
-                connection.close();
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
-        }
     }
 
     @Override
@@ -107,5 +86,21 @@ public class SQLServerDAO extends MySQLDAO{
         String sql = createTableBuilder.toString().replaceAll("\\s+", " ");
         logger.debug("[生成新表]类名:{},表名:{},执行SQL:{},", entity.className, entity.tableName, sql);
         connection.prepareStatement(sql).executeUpdate();
+    }
+
+    @Override
+    protected boolean isIndexExists(String tableName,String indexName) throws SQLException {
+        String indexExistsSQL = "EXEC Sp_helpindex '"+tableName+"'";
+        logger.debug("[查看索引]表名:{},执行SQL:{}",tableName,indexExistsSQL);
+        ResultSet resultSet = connection.prepareStatement(indexExistsSQL).executeQuery();
+        boolean result = false;
+        while(resultSet.next()) {
+            if(indexName.equals(resultSet.getString("index_name"))){
+                result = true;
+                break;
+            }
+        }
+        resultSet.close();
+        return result;
     }
 }

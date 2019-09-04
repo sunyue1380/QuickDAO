@@ -1,7 +1,6 @@
 package cn.schoolwow.quickdao.dao;
 
 import cn.schoolwow.quickdao.condition.Condition;
-import cn.schoolwow.quickdao.condition.SQLServerCondition;
 import cn.schoolwow.quickdao.domain.Entity;
 import cn.schoolwow.quickdao.domain.Property;
 import cn.schoolwow.quickdao.helper.SQLHelper;
@@ -452,6 +451,9 @@ public abstract class AbstractDAO implements DAO {
             createTable(entity);
             createIndex(entity);
             createUniqueKey(entity);
+            if(QuickDAOConfig.openForeignKey){
+                createForeignKey();
+            }
             commit();
         } catch (SQLException e) {
             e.printStackTrace();
@@ -464,9 +466,8 @@ public abstract class AbstractDAO implements DAO {
      */
     @Override
     public void drop(Class _class) {
-        Entity entity = ReflectionUtil.entityMap.get(_class.getName());
-        String sql = "drop table if exists " + syntaxHandler.getSyntax(Syntax.Escape, entity.tableName);
-        logger.debug("[删除表=>{}]执行SQL:{}", _class.getSimpleName(), sql);
+        String sql = sqlHelper.dropTable(_class);
+        logger.debug("[删除表]执行SQL:{}", sql);
         Connection connection = null;
         try {
             connection = getConnection();
@@ -535,11 +536,6 @@ public abstract class AbstractDAO implements DAO {
     protected abstract void createTable(Entity entity) throws SQLException;
 
     /**
-     * 对比实体类和数据表并创建新列
-     */
-    protected abstract void compareEntityDatabase(Entity entity, Entity dbEntity) throws SQLException;
-
-    /**
      * 创建索引
      */
     protected void createIndex(Entity entity) throws SQLException{
@@ -547,7 +543,7 @@ public abstract class AbstractDAO implements DAO {
             return;
         }
         String indexName = entity.tableName + "_index";
-        if (isConstraintExist(indexName)) {
+        if (isIndexExists(entity.tableName,indexName)) {
             return;
         }
         StringBuilder indexBuilder = new StringBuilder("create index " + syntaxHandler.getSyntax(Syntax.Escape,indexName)+" on " + syntaxHandler.getSyntax(Syntax.Escape,entity.tableName) + " (");
@@ -569,7 +565,7 @@ public abstract class AbstractDAO implements DAO {
             return;
         }
         String uniqueKeyIndexName = entity.tableName + "_unique_index";
-        if (isConstraintExist(uniqueKeyIndexName)) {
+        if (isIndexExists(entity.tableName,uniqueKeyIndexName)) {
             return;
         }
         StringBuilder uniqueKeyBuilder = new StringBuilder("create unique index " + syntaxHandler.getSyntax(Syntax.Escape,uniqueKeyIndexName)+" on " + syntaxHandler.getSyntax(Syntax.Escape,entity.tableName) + " (");
@@ -586,12 +582,22 @@ public abstract class AbstractDAO implements DAO {
     /**
      * 创建外键约束
      */
-    protected abstract void createForeignKey(Collection<Entity> entityList) throws SQLException;
+    protected abstract void createForeignKey() throws SQLException;
 
     /**
-     * 约束是否存在
+     * 索引是否存在
      */
-    protected abstract boolean isConstraintExist(String constraintName) throws SQLException;
+    protected abstract boolean isIndexExists(String tableName,String indexName) throws SQLException;
+
+    /**
+     * 外键是否存在
+     */
+    protected abstract boolean isConstraintExists(String tableName,String constraintName) throws SQLException;
+
+    /**
+     * 删除索引
+     */
+    protected abstract void dropIndex(String tableName,String indexName) throws SQLException;
 
     public void autoBuildDatabase() throws SQLException {
         if (!QuickDAOConfig.autoCreateTable) {
@@ -622,10 +628,73 @@ public abstract class AbstractDAO implements DAO {
             }
         }
         if (QuickDAOConfig.openForeignKey) {
-            createForeignKey(entityList);
+            createForeignKey();
         }
         commit();
         endTransaction();
+    }
+
+    /**
+     * 对比实体类和数据表并创建新列
+     */
+    private void compareEntityDatabase(Entity entity, Entity dbEntity) throws SQLException{
+        Property[] entityProperties = entity.properties;
+        Property[] dbEntityProperties = dbEntity.properties;
+        boolean hasIndexProperty = false;
+        boolean hasUniqueProperty = false;
+        boolean hasForeignKeyProperty = false;
+        for (Property entityProperty : entityProperties) {
+            boolean columnExist = false;
+            for (Property dbEntityProperty : dbEntityProperties) {
+                if (dbEntityProperty.column.equals(entityProperty.column)) {
+                    columnExist = true;
+                    break;
+                }
+            }
+            if (!columnExist) {
+                addProperty(entity,entityProperty);
+                if(entityProperty.index){
+                    hasIndexProperty = true;
+                }
+                if(entityProperty.unique){
+                    hasUniqueProperty = true;
+                }
+                if(null!=entityProperty.foreignKey){
+                    hasForeignKeyProperty = true;
+                }
+            }
+        }
+        //如果新增属性中有索引属性,则重新建立联合索引
+        if (hasIndexProperty) {
+            dropIndex(entity.tableName,entity.tableName + "_index");
+            createIndex(entity);
+        }
+        //如果新增属性中有唯一约束,则重新建立联合唯一约束
+        if (hasUniqueProperty) {
+            dropIndex(entity.tableName,entity.tableName + "_unique_index");
+            createUniqueKey(entity);
+        }
+        if(hasForeignKeyProperty){
+            createForeignKey();
+        }
+    }
+
+    /**
+     * 表添加属性
+     */
+    private void addProperty(Entity entity,Property property) throws SQLException{
+        StringBuilder addColumnBuilder = new StringBuilder();
+        addColumnBuilder.append("alter table " + syntaxHandler.getSyntax(Syntax.Escape,entity.tableName) + " add " + syntaxHandler.getSyntax(Syntax.Escape,property.column) + " " + property.columnType + " ");
+        if (null != property.defaultValue) {
+            addColumnBuilder.append(" default " + property.defaultValue);
+        }
+        if (null != property.comment) {
+            addColumnBuilder.append(" " + syntaxHandler.getSyntax(Syntax.Comment, property.comment));
+        }
+        addColumnBuilder.append(";");
+        String sql = addColumnBuilder.toString().replaceAll("\\s+", " ");
+        logger.debug("[添加新列]表:{},列名:{},执行SQL:{}", entity.tableName, property.column + "(" + property.columnType + ")", sql);
+        connection.prepareStatement(sql).executeUpdate();
     }
 
     /**更新属性列类型*/

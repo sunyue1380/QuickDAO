@@ -15,7 +15,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 
 public class MySQLDAO extends AbstractDAO {
@@ -103,44 +102,8 @@ public class MySQLDAO extends AbstractDAO {
     }
 
     @Override
-    protected void compareEntityDatabase(Entity entity, Entity dbEntity) throws SQLException {
-        Property[] entityProperties = entity.properties;
-        Property[] dbEntityProperties = dbEntity.properties;
-        for (Property entityProperty : entityProperties) {
-            boolean columnExist = false;
-            for (Property dbEntityProperty : dbEntityProperties) {
-                if (dbEntityProperty.column.equals(entityProperty.column)) {
-                    columnExist = true;
-                    break;
-                }
-            }
-            if (!columnExist) {
-                StringBuilder addColumnBuilder = new StringBuilder();
-                addColumnBuilder.append("alter table " + syntaxHandler.getSyntax(Syntax.Escape,entity.tableName) + " add column " + syntaxHandler.getSyntax(Syntax.Escape,entityProperty.column) + " " + entityProperty.columnType + " ");
-                if (null != entityProperty.defaultValue) {
-                    addColumnBuilder.append(" default " + entityProperty.defaultValue);
-                }
-                if (null != entityProperty.comment) {
-                    addColumnBuilder.append(" " + syntaxHandler.getSyntax(Syntax.Comment, entityProperty.comment));
-                }
-                if (null != entityProperty.foreignKey) {
-                    String foreignKeyName = "FK_" + entity.tableName + "_" + entityProperty.foreignKey.field() + "_" + ReflectionUtil.entityMap.get(entityProperty.foreignKey.table().getName()).tableName + "_" + entityProperty.name;
-                    addColumnBuilder.append(",constraint " + syntaxHandler.getSyntax(Syntax.Escape,foreignKeyName) + " foreign key(" + syntaxHandler.getSyntax(Syntax.Escape,entityProperty.column) + ") references " + entityProperty.foreignKey);
-                }
-                addColumnBuilder.append(";");
-                String sql = addColumnBuilder.toString().replaceAll("\\s+", " ");
-                logger.debug("[添加新列]表:{},列名:{},执行SQL:{}", entity.tableName, entityProperty.column + "(" + entityProperty.columnType + ")", sql);
-                connection.prepareStatement(sql).executeUpdate();
-                if (entityProperty.unique) {
-                    createUniqueKey(entity);
-                }
-            }
-        }
-    }
-
-    @Override
-    protected void createForeignKey(Collection<Entity> entityList) throws SQLException {
-        for (Entity entity : entityList) {
+    protected void createForeignKey() throws SQLException {
+        for (Entity entity : ReflectionUtil.entityMap.values()) {
             Property[] foreignKeyProperties = entity.foreignKeyProperties;
             if(null==foreignKeyProperties){
                 continue;
@@ -149,7 +112,7 @@ public class MySQLDAO extends AbstractDAO {
                 String operation = property.foreignKey.foreignKeyOption().getOperation();
                 String reference = syntaxHandler.getSyntax(Syntax.Escape,ReflectionUtil.entityMap.get(property.foreignKey.table().getName()).tableName) + "(" + syntaxHandler.getSyntax(Syntax.Escape,property.foreignKey.field()) + ") ON DELETE " + operation + " ON UPDATE " + operation;
                 String foreignKeyName = "FK_" + entity.tableName + "_" + property.foreignKey.field() + "_" + ReflectionUtil.entityMap.get(property.foreignKey.table().getName()).tableName + "_" + property.name;
-                if (isConstraintExist(foreignKeyName)) {
+                if (isConstraintExists(entity.tableName,foreignKeyName)) {
                     continue;
                 }
                 String foreignKeySQL = "alter table " + syntaxHandler.getSyntax(Syntax.Escape, entity.tableName) + " add constraint " + syntaxHandler.getSyntax(Syntax.Escape, foreignKeyName) + " foreign key(" + syntaxHandler.getSyntax(Syntax.Escape, property.column) + ") references " + reference;
@@ -160,7 +123,20 @@ public class MySQLDAO extends AbstractDAO {
     }
 
     @Override
-    protected boolean isConstraintExist(String constraintName) throws SQLException {
+    protected boolean isIndexExists(String tableName,String indexName) throws SQLException {
+        String indexExistsSQL = "show index from "+syntaxHandler.getSyntax(Syntax.Escape,tableName)+" where key_name = '"+indexName+"'";
+        logger.debug("[查看索引]表名:{},执行SQL:{}",tableName,indexExistsSQL);
+        ResultSet resultSet = connection.prepareStatement(indexExistsSQL).executeQuery();
+        boolean result = false;
+        if (resultSet.next()) {
+            result = true;
+        }
+        resultSet.close();
+        return result;
+    }
+
+    @Override
+    protected boolean isConstraintExists(String tableName, String constraintName) throws SQLException {
         ResultSet resultSet = connection.prepareStatement("select count(1) from information_schema.KEY_COLUMN_USAGE where constraint_name='" + constraintName + "'").executeQuery();
         boolean result = false;
         if (resultSet.next()) {
@@ -168,5 +144,14 @@ public class MySQLDAO extends AbstractDAO {
         }
         resultSet.close();
         return result;
+    }
+
+    @Override
+    protected void dropIndex(String tableName, String indexName) throws SQLException {
+        if (isIndexExists(tableName,indexName)) {
+            String dropIndexSQL = "drop index "+syntaxHandler.getSyntax(Syntax.Escape,indexName)+" on "+syntaxHandler.getSyntax(Syntax.Escape,tableName)+";";
+            logger.debug("[删除索引]表:{},执行SQL:{}", tableName, dropIndexSQL);
+            connection.prepareStatement(dropIndexSQL).executeUpdate();
+        }
     }
 }

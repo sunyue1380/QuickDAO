@@ -7,7 +7,6 @@ import cn.schoolwow.quickdao.domain.Property;
 import cn.schoolwow.quickdao.helper.SQLHelper;
 import cn.schoolwow.quickdao.syntax.PostgreSyntaxHandler;
 import cn.schoolwow.quickdao.syntax.Syntax;
-import cn.schoolwow.quickdao.util.ReflectionUtil;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -16,7 +15,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 public class PostgreDAO extends MySQLDAO {
     public PostgreDAO(DataSource dataSource) {
@@ -97,14 +95,25 @@ public class PostgreDAO extends MySQLDAO {
     }
 
     @Override
-    protected boolean isConstraintExist(String constraintName) throws SQLException {
-        ResultSet resultSet = connection.prepareStatement("select count(1) from pg_constraint where conname='" + constraintName + "'").executeQuery();
+    protected boolean isIndexExists(String tableName,String indexName) throws SQLException {
+        String indexExistsSQL = "select count(1) from pg_indexes where tablename = '"+tableName+"' and indexname = '"+indexName+"'";
+        logger.debug("[查看索引]表名:{},执行SQL:{}",tableName,indexExistsSQL);
+        ResultSet resultSet = connection.prepareStatement(indexExistsSQL).executeQuery();
         boolean result = false;
         if (resultSet.next()) {
             result = resultSet.getInt(1) > 0;
         }
         resultSet.close();
         return result;
+    }
+
+    @Override
+    protected void dropIndex(String tableName, String indexName) throws SQLException {
+        if (isIndexExists(tableName,indexName)) {
+            String dropIndexSQL = "drop index "+syntaxHandler.getSyntax(Syntax.Escape,indexName);
+            logger.debug("[删除索引]表:{},执行SQL:{}", tableName, dropIndexSQL);
+            connection.prepareStatement(dropIndexSQL).executeUpdate();
+        }
     }
 
     private void createComment(Entity entity) throws SQLException {
