@@ -1,3 +1,15 @@
+# 此仓库已废弃
+
+请访问 https://github.com/sunyue1380/QuickDAO3 获取最新版本
+
+
+
+
+
+
+
+
+
 # QuickDAO
 QuickDAO是一款简单,易用,轻量级的java ORM框架.
 
